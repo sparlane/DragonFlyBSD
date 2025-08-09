@@ -460,6 +460,11 @@ rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
     CASE_CONST_UNIQUE:
       return 0;
 
+    case CONST_VECTOR:
+      if (!same_vector_encodings_p (x, y))
+	return false;
+      break;
+
     case DEBUG_IMPLICIT_PTR:
       return DEBUG_IMPLICIT_PTR_DECL (x)
 	     == DEBUG_IMPLICIT_PTR_DECL (y);
@@ -602,6 +607,11 @@ rtx_equal_p (const_rtx x, const_rtx y)
     CASE_CONST_UNIQUE:
       return 0;
 
+    case CONST_VECTOR:
+      if (!same_vector_encodings_p (x, y))
+	return false;
+      break;
+
     case DEBUG_IMPLICIT_PTR:
       return DEBUG_IMPLICIT_PTR_DECL (x)
 	     == DEBUG_IMPLICIT_PTR_DECL (y);
@@ -731,6 +741,8 @@ classify_insn (rtx x)
     return CALL_INSN;
   if (ANY_RETURN_P (x))
     return JUMP_INSN;
+  if (GET_CODE (x) == ASM_OPERANDS && ASM_OPERANDS_LABEL_VEC (x))
+    return JUMP_INSN;
   if (GET_CODE (x) == SET)
     {
       if (GET_CODE (SET_DEST (x)) == PC)
@@ -756,6 +768,9 @@ classify_insn (rtx x)
 		 && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == CALL)
 	  return CALL_INSN;
       if (has_return_p)
+	return JUMP_INSN;
+      if (GET_CODE (XVECEXP (x, 0, 0)) == ASM_OPERANDS
+	  && ASM_OPERANDS_LABEL_VEC (XVECEXP (x, 0, 0)))
 	return JUMP_INSN;
     }
 #ifdef GENERATOR_FILE

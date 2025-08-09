@@ -623,9 +623,16 @@ store_bit_field_using_insv (const extraction_insn *insv, rtx op0,
       /* If xop0 is a register, we need it in OP_MODE
 	 to make it acceptable to the format of insv.  */
       if (GET_CODE (xop0) == SUBREG)
-	/* We can't just change the mode, because this might clobber op0,
-	   and we will need the original value of op0 if insv fails.  */
-	xop0 = gen_rtx_SUBREG (op_mode, SUBREG_REG (xop0), SUBREG_BYTE (xop0));
+	{
+	  /* If such a SUBREG can't be created, give up.  */
+	  if (!validate_subreg (op_mode, GET_MODE (SUBREG_REG (xop0)),
+				SUBREG_REG (xop0), SUBREG_BYTE (xop0)))
+	    return false;
+	  /* We can't just change the mode, because this might clobber op0,
+	     and we will need the original value of op0 if insv fails.  */
+	  xop0 = gen_rtx_SUBREG (op_mode, SUBREG_REG (xop0),
+				 SUBREG_BYTE (xop0));
+	}
       if (REG_P (xop0) && GET_MODE (xop0) != op_mode)
 	xop0 = gen_lowpart_SUBREG (op_mode, xop0);
     }
@@ -838,6 +845,27 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
       if (MEM_P (op0))
 	op0 = adjust_bitfield_address_size (op0, op0_mode.else_blk (),
 					    0, MEM_SIZE (op0));
+      else if (!op0_mode.exists ())
+	{
+	  if (ibitnum == 0
+	      && known_eq (ibitsize, GET_MODE_BITSIZE (GET_MODE (op0)))
+	      && MEM_P (value)
+	      && !reverse)
+	    {
+	      value = adjust_address (value, GET_MODE (op0), 0);
+	      emit_move_insn (op0, value);
+	      return true;
+	    }
+	  if (!fallback_p)
+	    return false;
+	  rtx temp = assign_stack_temp (GET_MODE (op0),
+					GET_MODE_SIZE (GET_MODE (op0)));
+	  emit_move_insn (temp, op0);
+	  store_bit_field_1 (temp, bitsize, bitnum, 0, 0, fieldmode, value,
+			     reverse, fallback_p);
+	  emit_move_insn (op0, temp);
+	  return true;
+	}
       else
 	op0 = gen_lowpart (op0_mode.require (), op0);
     }
@@ -3352,13 +3380,20 @@ expand_mult_const (machine_mode mode, rtx op0, HOST_WIDE_INT val,
 	      tem = gen_lowpart (nmode, op0);
 	    }
 
-	  insn = get_last_insn ();
-	  wide_int wval_so_far
-	    = wi::uhwi (val_so_far,
-			GET_MODE_PRECISION (as_a <scalar_mode> (nmode)));
-	  rtx c = immed_wide_int_const (wval_so_far, nmode);
-	  set_dst_reg_note (insn, REG_EQUAL, gen_rtx_MULT (nmode, tem, c),
-			    accum_inner);
+	  /* Don't add a REG_EQUAL note if tem is a paradoxical SUBREG.
+	     In that case, only the low bits of accum would be guaranteed to
+	     be equal to the content of the REG_EQUAL note, the upper bits
+	     can be anything.  */
+	  if (!paradoxical_subreg_p (tem))
+	    {
+	      insn = get_last_insn ();
+	      wide_int wval_so_far
+		= wi::uhwi (val_so_far,
+			    GET_MODE_PRECISION (as_a <scalar_mode> (nmode)));
+	      rtx c = immed_wide_int_const (wval_so_far, nmode);
+	      set_dst_reg_note (insn, REG_EQUAL, gen_rtx_MULT (nmode, tem, c),
+				accum_inner);
+	    }
 	}
     }
 

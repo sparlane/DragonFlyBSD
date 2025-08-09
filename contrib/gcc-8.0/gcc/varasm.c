@@ -1857,28 +1857,20 @@ assemble_start_function (tree decl, const char *fnname)
       tree pp_val = TREE_VALUE (patchable_function_entry_attr);
       tree patchable_function_entry_value1 = TREE_VALUE (pp_val);
 
-      if (tree_fits_uhwi_p (patchable_function_entry_value1))
-	patch_area_size = tree_to_uhwi (patchable_function_entry_value1);
-      else
-	gcc_unreachable ();
-
+      patch_area_size = tree_to_uhwi (patchable_function_entry_value1);
       patch_area_entry = 0;
-      if (list_length (pp_val) > 1)
+      if (TREE_CHAIN (pp_val) != NULL_TREE)
 	{
-	  tree patchable_function_entry_value2 =
-	    TREE_VALUE (TREE_CHAIN (pp_val));
-
-	  if (tree_fits_uhwi_p (patchable_function_entry_value2))
-	    patch_area_entry = tree_to_uhwi (patchable_function_entry_value2);
-	  else
-	    gcc_unreachable ();
+	  tree patchable_function_entry_value2
+	    = TREE_VALUE (TREE_CHAIN (pp_val));
+	  patch_area_entry = tree_to_uhwi (patchable_function_entry_value2);
 	}
     }
 
   if (patch_area_entry > patch_area_size)
     {
       if (patch_area_size > 0)
-	warning (OPT_Wattributes, "Patchable function entry > size");
+	warning (OPT_Wattributes, "patchable function entry > size");
       patch_area_entry = 0;
     }
 
@@ -1898,7 +1890,8 @@ assemble_start_function (tree decl, const char *fnname)
   /* And the area after the label.  Record it if we haven't done so yet.  */
   if (patch_area_size > patch_area_entry)
     targetm.asm_out.print_patchable_function_entry (asm_out_file,
-					     patch_area_size-patch_area_entry,
+						    patch_area_size
+						    - patch_area_entry,
 						    patch_area_entry == 0);
 
   if (lookup_attribute ("no_split_stack", DECL_ATTRIBUTES (decl)))
@@ -2582,20 +2575,16 @@ assemble_name_raw (FILE *file, const char *name)
     ASM_OUTPUT_LABELREF (file, name);
 }
 
-/* Like assemble_name_raw, but should be used when NAME might refer to
-   an entity that is also represented as a tree (like a function or
-   variable).  If NAME does refer to such an entity, that entity will
-   be marked as referenced.  */
-
-void
-assemble_name (FILE *file, const char *name)
+/* Return NAME that should actually be emitted, looking through
+   transparent aliases.  If NAME refers to an entity that is also
+   represented as a tree (like a function or variable), mark the entity
+   as referenced.  */
+const char *
+assemble_name_resolve (const char *name)
 {
-  const char *real_name;
-  tree id;
+  const char *real_name = targetm.strip_name_encoding (name);
+  tree id = maybe_get_identifier (real_name);
 
-  real_name = targetm.strip_name_encoding (name);
-
-  id = maybe_get_identifier (real_name);
   if (id)
     {
       tree id_orig = id;
@@ -2607,7 +2596,18 @@ assemble_name (FILE *file, const char *name)
       gcc_assert (! TREE_CHAIN (id));
     }
 
-  assemble_name_raw (file, name);
+  return name;
+}
+
+/* Like assemble_name_raw, but should be used when NAME might refer to
+   an entity that is also represented as a tree (like a function or
+   variable).  If NAME does refer to such an entity, that entity will
+   be marked as referenced.  */
+
+void
+assemble_name (FILE *file, const char *name)
+{
+  assemble_name_raw (file, assemble_name_resolve (name));
 }
 
 /* Allocate SIZE bytes writable static space with a gensym name
@@ -5069,6 +5069,26 @@ struct oc_local_state {
 static void
 output_constructor_array_range (oc_local_state *local)
 {
+  /* Perform the index calculation in modulo arithmetic but
+     sign-extend the result because Ada has negative DECL_FIELD_OFFSETs
+     but we are using an unsigned sizetype.  */
+  unsigned prec = TYPE_PRECISION (sizetype);
+  offset_int idx = wi::sext (wi::to_offset (TREE_OPERAND (local->index, 0))
+			     - wi::to_offset (local->min_index), prec);
+  tree valtype = TREE_TYPE (local->val);
+  HOST_WIDE_INT fieldpos
+    = (idx * wi::to_offset (TYPE_SIZE_UNIT (valtype))).to_short_addr ();
+
+  /* Advance to offset of this element.  */
+  if (fieldpos > local->total_bytes)
+    {
+      assemble_zeros (fieldpos - local->total_bytes);
+      local->total_bytes = fieldpos;
+    }
+  else
+    /* Must not go backwards.  */
+    gcc_assert (fieldpos == local->total_bytes);
+
   unsigned HOST_WIDE_INT fieldsize
     = int_size_in_bytes (TREE_TYPE (local->type));
 
@@ -5292,7 +5312,7 @@ output_constructor_bitfield (oc_local_state *local, unsigned int bit_offset)
     {
       int this_time;
       int shift;
-      HOST_WIDE_INT value;
+      unsigned HOST_WIDE_INT value;
       HOST_WIDE_INT next_byte = next_offset / BITS_PER_UNIT;
       HOST_WIDE_INT next_bit = next_offset % BITS_PER_UNIT;
 
@@ -5324,15 +5344,13 @@ output_constructor_bitfield (oc_local_state *local, unsigned int bit_offset)
 	      this_time = end - shift + 1;
 	    }
 
-	  /* Now get the bits from the appropriate constant word.  */
-	  value = TREE_INT_CST_ELT (local->val, shift / HOST_BITS_PER_WIDE_INT);
-	  shift = shift & (HOST_BITS_PER_WIDE_INT - 1);
+	  /* Now get the bits we want to insert.  */
+	  value = wi::extract_uhwi (wi::to_widest (local->val),
+				    shift, this_time);
 
 	  /* Get the result.  This works only when:
 	     1 <= this_time <= HOST_BITS_PER_WIDE_INT.  */
-	  local->byte |= (((value >> shift)
-			   & (((HOST_WIDE_INT) 2 << (this_time - 1)) - 1))
-			  << (BITS_PER_UNIT - this_time - next_bit));
+	  local->byte |= value << (BITS_PER_UNIT - this_time - next_bit);
 	}
       else
 	{
@@ -5349,15 +5367,13 @@ output_constructor_bitfield (oc_local_state *local, unsigned int bit_offset)
 	    this_time
 	      = HOST_BITS_PER_WIDE_INT - (shift & (HOST_BITS_PER_WIDE_INT - 1));
 
-	  /* Now get the bits from the appropriate constant word.  */
-	  value = TREE_INT_CST_ELT (local->val, shift / HOST_BITS_PER_WIDE_INT);
-	  shift = shift & (HOST_BITS_PER_WIDE_INT - 1);
+	  /* Now get the bits we want to insert.  */
+	  value = wi::extract_uhwi (wi::to_widest (local->val),
+				    shift, this_time);
 
 	  /* Get the result.  This works only when:
 	     1 <= this_time <= HOST_BITS_PER_WIDE_INT.  */
-	  local->byte |= (((value >> shift)
-			   & (((HOST_WIDE_INT) 2 << (this_time - 1)) - 1))
-			  << next_bit);
+	  local->byte |= value << next_bit;
 	}
 
       next_offset += this_time;
@@ -5585,7 +5601,12 @@ merge_weak (tree newdecl, tree olddecl)
 void
 declare_weak (tree decl)
 {
-  gcc_assert (TREE_CODE (decl) != FUNCTION_DECL || !TREE_ASM_WRITTEN (decl));
+  /* With -fsyntax-only, TREE_ASM_WRITTEN might be set on certain function
+     decls earlier than normally, but as with -fsyntax-only nothing is really
+     emitted, there is no harm in marking it weak later.  */
+  gcc_assert (TREE_CODE (decl) != FUNCTION_DECL
+	      || !TREE_ASM_WRITTEN (decl)
+	      || flag_syntax_only);
   if (! TREE_PUBLIC (decl))
     {
       error ("weak declaration of %q+D must be public", decl);

@@ -2163,13 +2163,33 @@ next_arg:;
 	  if (TYPE_NAME (TREE_TYPE (newdecl)) == newdecl)
 	    {
 	      tree remove = TREE_TYPE (newdecl);
-	      for (tree t = TYPE_MAIN_VARIANT (remove); ;
-		   t = TYPE_NEXT_VARIANT (t))
-		if (TYPE_NEXT_VARIANT (t) == remove)
-		  {
-		    TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (remove);
-		    break;
-		  }
+	      if (TYPE_MAIN_VARIANT (remove) == remove)
+		{
+		  gcc_assert (TYPE_NEXT_VARIANT (remove) == NULL_TREE);
+		  /* If remove is the main variant, no need to remove that
+		     from the list.  One of the DECL_ORIGINAL_TYPE
+		     variants, e.g. created for aligned attribute, might still
+		     refer to the newdecl TYPE_DECL though, so remove that one
+		     in that case.  */
+		  if (tree orig = DECL_ORIGINAL_TYPE (newdecl))
+		    if (orig != remove)
+		      for (tree t = TYPE_MAIN_VARIANT (orig); t;
+			   t = TYPE_MAIN_VARIANT (t))
+			if (TYPE_NAME (TYPE_NEXT_VARIANT (t)) == newdecl)
+			  {
+			    TYPE_NEXT_VARIANT (t)
+			      = TYPE_NEXT_VARIANT (TYPE_NEXT_VARIANT (t));
+			    break;
+			  }
+		}	    
+	      else
+		for (tree t = TYPE_MAIN_VARIANT (remove); ;
+		     t = TYPE_NEXT_VARIANT (t))
+		  if (TYPE_NEXT_VARIANT (t) == remove)
+		    {
+		      TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (remove);
+		      break;
+		    }
 	    }
 	}
       else if (merge_attr)
@@ -5616,6 +5636,7 @@ maybe_commonize_var (tree decl)
 		 be merged.  */
 	      TREE_PUBLIC (decl) = 0;
 	      DECL_COMMON (decl) = 0;
+	      DECL_INTERFACE_KNOWN (decl) = 1;
 	      const char *msg;
 	      if (DECL_INLINE_VAR_P (decl))
 		msg = G_("sorry: semantics of inline variable "
@@ -6141,14 +6162,13 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
 	       by the front end.  Here we have e.g. {.__pfn=0B, .__delta=0},
 	       which is missing outermost braces.  We should warn below, and
 	       one of the routines below will wrap it in additional { }.  */;
-	  /* For a nested compound literal, there is no need to reshape since
-	     we called reshape_init in finish_compound_literal, before calling
-	     digest_init.  */
-	  else if (COMPOUND_LITERAL_P (init)
-		   /* Similarly, a CONSTRUCTOR of the target's type is a
-		      previously digested initializer.  */
-		   || same_type_ignoring_top_level_qualifiers_p (type,
-								 init_type))
+	  /* For a nested compound literal, proceed to specialized routines,
+	     to handle initialization of arrays and similar.  */
+	  else if (COMPOUND_LITERAL_P (init))
+	    gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (init));
+	  /* A CONSTRUCTOR of the target's type is a previously
+	     digested initializer.  */
+	  else if (same_type_ignoring_top_level_qualifiers_p (type, init_type))
 	    {
 	      ++d->cur;
 	      gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (init));
@@ -6257,6 +6277,19 @@ bool
 check_array_initializer (tree decl, tree type, tree init)
 {
   tree element_type = TREE_TYPE (type);
+
+  /* Structured binding when initialized with an array type needs
+     to have complete type.  */
+  if (decl
+      && DECL_DECOMPOSITION_P (decl)
+      && !DECL_DECOMP_BASE (decl)
+      && !COMPLETE_TYPE_P (type))
+    {
+      error_at (DECL_SOURCE_LOCATION (decl),
+		"structured binding has incomplete type %qT", type);
+      TREE_TYPE (decl) = error_mark_node;
+      return true;
+    }
 
   /* The array type itself need not be complete, because the
      initializer may tell us how many elements are in the array.
@@ -7073,6 +7106,12 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  retrofit_lang_decl (decl);
 	  SET_DECL_DEPENDENT_INIT_P (decl, true);
 	}
+
+      if (VAR_P (decl) && DECL_REGISTER (decl) && asmspec)
+	{
+	  set_user_assembler_name (decl, asmspec);
+	  DECL_HARD_REGISTER (decl) = 1;
+	}
       return;
     }
 
@@ -7230,7 +7269,10 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       /* This needs to happen after the linkage is set. */
       determine_visibility (decl);
 
-      if (var_definition_p && TREE_STATIC (decl))
+      if (var_definition_p
+	  /* With -fmerge-all-constants, gimplify_init_constructor
+	     might add TREE_STATIC to the variable.  */
+	  && (TREE_STATIC (decl) || flag_merge_constants >= 2))
 	{
 	  /* If a TREE_READONLY variable needs initialization
 	     at runtime, it is no longer readonly and we need to
@@ -7281,8 +7323,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	       && ! (DECL_LANG_SPECIFIC (decl)
 		     && DECL_NOT_REALLY_EXTERN (decl)))
 	{
-	  if (init)
-	    DECL_INITIAL (decl) = init;
+	  /* check_initializer will have done any constant initialization.  */
 	}
       /* A variable definition.  */
       else if (DECL_FUNCTION_SCOPE_P (decl) && !TREE_STATIC (decl))
@@ -7750,6 +7791,12 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 			 : get_tuple_element_type (type, i));
 	  input_location = sloc;
 
+	  if (VOID_TYPE_P (eltype))
+	    {
+	      error ("%<std::tuple_element<%u, %T>::type%> is %<void%>",
+		     i, type);
+	      eltype = error_mark_node;
+	    }
 	  if (init == error_mark_node || eltype == error_mark_node)
 	    {
 	      inform (dloc, "in initialization of structured binding "
@@ -7791,6 +7838,8 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
       error_at (loc, "cannot decompose lambda closure type %qT", type);
       goto error_out;
     }
+  else if (processing_template_decl && complete_type (type) == error_mark_node)
+    goto error_out;
   else if (processing_template_decl && !COMPLETE_TYPE_P (type))
     pedwarn (loc, 0, "structured binding refers to incomplete class type %qT",
 	     type);
@@ -8326,14 +8375,14 @@ expand_static_init (tree decl, tree init)
 	      (acquire_name, build_function_type_list (integer_type_node,
 						       TREE_TYPE (guard_addr),
 						       NULL_TREE),
-	       NULL_TREE, ECF_NOTHROW | ECF_LEAF);
+	       NULL_TREE, ECF_NOTHROW);
 	  if (!release_fn || !abort_fn)
 	    vfntype = build_function_type_list (void_type_node,
 						TREE_TYPE (guard_addr),
 						NULL_TREE);
 	  if (!release_fn)
 	    release_fn = push_library_fn (release_name, vfntype, NULL_TREE,
-					   ECF_NOTHROW | ECF_LEAF);
+					  ECF_NOTHROW);
 	  if (!abort_fn)
 	    abort_fn = push_library_fn (abort_name, vfntype, NULL_TREE,
 					ECF_NOTHROW | ECF_LEAF);
@@ -8354,17 +8403,25 @@ expand_static_init (tree decl, tree init)
 
 	  /* Do the initialization itself.  */
 	  init = add_stmt_to_compound (begin, init);
-	  init = add_stmt_to_compound
-	    (init, build2 (MODIFY_EXPR, void_type_node, flag, boolean_true_node));
-	  init = add_stmt_to_compound
-	    (init, build_call_n (release_fn, 1, guard_addr));
+	  init = add_stmt_to_compound (init,
+				       build2 (MODIFY_EXPR, void_type_node,
+					       flag, boolean_true_node));
+
+	  /* Use atexit to register a function for destroying this static
+	     variable.  Do this before calling __cxa_guard_release.  */
+	  init = add_stmt_to_compound (init, register_dtor_fn (decl));
+
+	  init = add_stmt_to_compound (init, build_call_n (release_fn, 1,
+							   guard_addr));
 	}
       else
-	init = add_stmt_to_compound (init, set_guard (guard));
+	{
+	  init = add_stmt_to_compound (init, set_guard (guard));
 
-      /* Use atexit to register a function for destroying this static
-	 variable.  */
-      init = add_stmt_to_compound (init, register_dtor_fn (decl));
+	  /* Use atexit to register a function for destroying this static
+	     variable.  */
+	  init = add_stmt_to_compound (init, register_dtor_fn (decl));
+	}
 
       finish_expr_stmt (init);
 
@@ -15346,7 +15403,8 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       && !implicit_default_ctor_p (decl1))
     cp_ubsan_maybe_initialize_vtbl_ptrs (current_class_ptr);
 
-  start_lambda_scope (decl1);
+  if (!DECL_OMP_DECLARE_REDUCTION_P (decl1))
+    start_lambda_scope (decl1);
 
   return true;
 }
@@ -15569,14 +15627,20 @@ begin_destructor_body (void)
 	    /* If the vptr is shared with some virtual nearly empty base,
 	       don't clear it if not in charge, the dtor of the virtual
 	       nearly empty base will do that later.  */
-	    if (CLASSTYPE_VBASECLASSES (current_class_type)
-		&& CLASSTYPE_PRIMARY_BINFO (current_class_type)
-		&& BINFO_VIRTUAL_P
-			  (CLASSTYPE_PRIMARY_BINFO (current_class_type)))
+	    if (CLASSTYPE_VBASECLASSES (current_class_type))
 	      {
-		stmt = convert_to_void (stmt, ICV_STATEMENT,
-					tf_warning_or_error);
-		stmt = build_if_in_charge (stmt);
+		tree c = current_class_type;
+		while (CLASSTYPE_PRIMARY_BINFO (c))
+		  {
+		    if (BINFO_VIRTUAL_P (CLASSTYPE_PRIMARY_BINFO (c)))
+		      {
+			stmt = convert_to_void (stmt, ICV_STATEMENT,
+						tf_warning_or_error);
+			stmt = build_if_in_charge (stmt);
+			break;
+		      }
+		    c = BINFO_TYPE (CLASSTYPE_PRIMARY_BINFO (c));
+		  }
 	      }
 	    finish_decl_cleanup (NULL_TREE, stmt);
 	  }
@@ -15739,7 +15803,8 @@ finish_function (bool inline_p)
   if (fndecl == NULL_TREE)
     return error_mark_node;
 
-  finish_lambda_scope ();
+  if (!DECL_OMP_DECLARE_REDUCTION_P (fndecl))
+    finish_lambda_scope ();
 
   if (c_dialect_objc ())
     objc_finish_function ();
@@ -15856,7 +15921,7 @@ finish_function (bool inline_p)
     invoke_plugin_callbacks (PLUGIN_PRE_GENERICIZE, fndecl);
 
   /* Perform delayed folding before NRV transformation.  */
-  if (!processing_template_decl)
+  if (!processing_template_decl && !DECL_OMP_DECLARE_REDUCTION_P (fndecl))
     cp_fold_function (fndecl);
 
   /* Set up the named return value optimization, if we can.  Candidate
@@ -15965,7 +16030,8 @@ finish_function (bool inline_p)
   if (!processing_template_decl)
     {
       struct language_function *f = DECL_SAVED_FUNCTION_DATA (fndecl);
-      cp_genericize (fndecl);
+      if (!DECL_OMP_DECLARE_REDUCTION_P (fndecl))
+	cp_genericize (fndecl);
       /* Clear out the bits we don't need.  */
       f->x_current_class_ptr = NULL;
       f->x_current_class_ref = NULL;

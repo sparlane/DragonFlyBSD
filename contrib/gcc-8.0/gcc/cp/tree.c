@@ -3192,6 +3192,11 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 	    tree type = TREE_TYPE (*valp);
 	    tree subob = obj;
 
+	    /* Elements with RANGE_EXPR index shouldn't have any
+	       placeholders in them.  */
+	    if (ce->index && TREE_CODE (ce->index) == RANGE_EXPR)
+	      continue;
+
 	    if (TREE_CODE (*valp) == CONSTRUCTOR
 		&& AGGREGATE_TYPE_P (type))
 	      {
@@ -3811,6 +3816,9 @@ cp_tree_equal (tree t1, tree t2)
 	    if (SIZEOF_EXPR_TYPE_P (t2))
 	      o2 = TREE_TYPE (o2);
 	  }
+	else if (ALIGNOF_EXPR_STD_P (t1) != ALIGNOF_EXPR_STD_P (t2))
+	  return false;
+
 	if (TREE_CODE (o1) != TREE_CODE (o2))
 	  return false;
 	if (TYPE_P (o1))

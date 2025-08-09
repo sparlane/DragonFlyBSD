@@ -1844,7 +1844,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
   if (current_class_ptr)
     TREE_USED (current_class_ptr) = 1;
-  if (processing_template_decl && !qualifying_scope)
+  if (processing_template_decl)
     {
       tree type = TREE_TYPE (decl);
 
@@ -1865,17 +1865,16 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	  type = cp_build_qualified_type (type, quals);
 	}
 
-      ret = (convert_from_reference
-	      (build_min (COMPONENT_REF, type, object, decl, NULL_TREE)));
+      if (qualifying_scope)
+	/* Wrap this in a SCOPE_REF for now.  */
+	ret = build_qualified_name (type, qualifying_scope, decl,
+				    /*template_p=*/false);
+      else
+	ret = (convert_from_reference
+	       (build_min (COMPONENT_REF, type, object, decl, NULL_TREE)));
     }
   /* If PROCESSING_TEMPLATE_DECL is nonzero here, then
-     QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
-     for now.  */
-  else if (processing_template_decl)
-    ret = build_qualified_name (TREE_TYPE (decl),
-				qualifying_scope,
-				decl,
-				/*template_p=*/false);
+     QUALIFYING_SCOPE is also non-null.  */
   else
     {
       tree access_type = TREE_TYPE (object);
@@ -2102,6 +2101,14 @@ finish_qualified_id_expr (tree qualifying_class,
 	expr = build_offset_ref (qualifying_class, expr, /*address_p=*/false,
 				 complain);
     }
+  else if (!template_p
+	   && TREE_CODE (expr) == TEMPLATE_DECL
+	   && !DECL_FUNCTION_TEMPLATE_P (expr))
+    {
+      if (complain & tf_error)
+	error ("%qE missing template arguments", expr);
+      return error_mark_node;
+    }
   else
     {
       /* In a template, return a SCOPE_REF for most qualified-ids
@@ -2117,6 +2124,8 @@ finish_qualified_id_expr (tree qualifying_class,
 	expr = build_qualified_name (TREE_TYPE (expr),
 				     qualifying_class, expr,
 				     template_p);
+      else if (tree wrap = maybe_get_tls_wrapper_call (expr))
+	expr = wrap;
 
       expr = convert_from_reference (expr);
     }
@@ -2408,7 +2417,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	      bool abnormal = true;
 	      for (lkp_iterator iter (fn); abnormal && iter; ++iter)
 		{
-		  tree fndecl = *iter;
+		  tree fndecl = STRIP_TEMPLATE (*iter);
 		  if (TREE_CODE (fndecl) != FUNCTION_DECL
 		      || !TREE_THIS_VOLATILE (fndecl))
 		    abnormal = false;
@@ -3712,18 +3721,10 @@ finish_id_expression (tree id_expression,
 	  *non_integral_constant_expression_p = true;
 	}
 
-      tree wrap;
-      if (VAR_P (decl)
-	  && !cp_unevaluated_operand
-	  && !processing_template_decl
-	  && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
-	  && CP_DECL_THREAD_LOCAL_P (decl)
-	  && (wrap = get_tls_wrapper_fn (decl)))
-	{
-	  /* Replace an evaluated use of the thread_local variable with
-	     a call to its wrapper.  */
-	  decl = build_cxx_call (wrap, 0, NULL, tf_warning_or_error);
-	}
+      if (tree wrap = maybe_get_tls_wrapper_call (decl))
+	/* Replace an evaluated use of the thread_local variable with
+	   a call to its wrapper.  */
+	decl = wrap;
       else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
 	       && !dependent_p
 	       && variable_template_p (TREE_OPERAND (decl, 0)))
@@ -4232,7 +4233,7 @@ expand_or_defer_fn_1 (tree fn)
       if (DECL_INTERFACE_KNOWN (fn))
 	/* We've already made a decision as to how this function will
 	   be handled.  */;
-      else if (!at_eof)
+      else if (!at_eof || DECL_OMP_DECLARE_REDUCTION_P (fn))
 	tentative_decl_linkage (fn);
       else
 	import_export_decl (fn);
@@ -4243,6 +4244,7 @@ expand_or_defer_fn_1 (tree fn)
 	 be emitted; there may be callers in other DLLs.  */
       if (DECL_DECLARED_INLINE_P (fn)
 	  && !DECL_REALLY_EXTERN (fn)
+	  && !DECL_OMP_DECLARE_REDUCTION_P (fn)
 	  && (flag_keep_inline_functions
 	      || (flag_keep_inline_dllexport
 		  && lookup_attribute ("dllexport", DECL_ATTRIBUTES (fn)))))
@@ -4268,6 +4270,14 @@ expand_or_defer_fn_1 (tree fn)
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
+    {
+      /* Pretend that this function has been written out so that we don't try
+	 to expand it again.  */
+      TREE_ASM_WRITTEN (fn) = 1;
+      return false;
+    }
+
+  if (DECL_OMP_DECLARE_REDUCTION_P (fn))
     return false;
 
   return true;
@@ -7308,7 +7318,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  t = require_complete_type (t);
 	  if (t == error_mark_node)
 	    remove = true;
-	  else if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE
+	  else if (!processing_template_decl
+		   && TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE
 		   && !complete_type_or_else (TREE_TYPE (TREE_TYPE (t)), t))
 	    remove = true;
 	}
@@ -8455,6 +8466,11 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
       stmt = build2 (OMP_ATOMIC, void_type_node, integer_zero_node, stmt);
       OMP_ATOMIC_SEQ_CST (stmt) = seq_cst;
     }
+
+  /* Avoid -Wunused-value warnings here, the whole construct has side-effects
+     and even if it might be wrapped from fold-const.c or c-omp.c wrapped
+     in some tree that appears to be unused, the value is not unused.  */
+  warning_sentinel w (warn_unused_value);
   finish_expr_stmt (stmt);
 }
 

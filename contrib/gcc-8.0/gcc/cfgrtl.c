@@ -224,10 +224,20 @@ delete_insn_and_edges (rtx_insn *insn)
 {
   bool purge = false;
 
-  if (INSN_P (insn)
-      && BLOCK_FOR_INSN (insn)
-      && BB_END (BLOCK_FOR_INSN (insn)) == insn)
-    purge = true;
+  if (INSN_P (insn) && BLOCK_FOR_INSN (insn))
+    {
+      basic_block bb = BLOCK_FOR_INSN (insn);
+      if (BB_END (bb) == insn)
+	purge = true;
+      else if (DEBUG_INSN_P (BB_END (bb)))
+	for (rtx_insn *dinsn = NEXT_INSN (insn);
+	     DEBUG_INSN_P (dinsn); dinsn = NEXT_INSN (dinsn))
+	  if (BB_END (bb) == dinsn)
+	    {
+	      purge = true;
+	      break;
+	    }
+    }
   delete_insn (insn);
   if (purge)
     return purge_dead_edges (BLOCK_FOR_INSN (insn));
@@ -3041,7 +3051,7 @@ purge_dead_edges (basic_block bb)
   bool found;
   edge_iterator ei;
 
-  if (DEBUG_INSN_P (insn) && insn != BB_HEAD (bb))
+  if ((DEBUG_INSN_P (insn) || NOTE_P (insn)) && insn != BB_HEAD (bb))
     do
       insn = PREV_INSN (insn);
     while ((DEBUG_INSN_P (insn) || NOTE_P (insn)) && insn != BB_HEAD (bb));
@@ -4233,7 +4243,7 @@ duplicate_insn_chain (rtx_insn *from, rtx_insn *to)
 /* Create a duplicate of the basic block BB.  */
 
 static basic_block
-cfg_layout_duplicate_bb (basic_block bb)
+cfg_layout_duplicate_bb (basic_block bb, copy_bb_data *)
 {
   rtx_insn *insn;
   basic_block new_bb;
@@ -5059,9 +5069,9 @@ rtl_can_remove_branch_p (const_edge e)
 }
 
 static basic_block
-rtl_duplicate_bb (basic_block bb)
+rtl_duplicate_bb (basic_block bb, copy_bb_data *id)
 {
-  bb = cfg_layout_duplicate_bb (bb);
+  bb = cfg_layout_duplicate_bb (bb, id);
   bb->aux = NULL;
   return bb;
 }

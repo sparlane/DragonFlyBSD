@@ -2395,6 +2395,24 @@ get_vcall_index (tree fn, tree type)
   gcc_unreachable ();
 }
 
+/* Given a DECL_VINDEX of a virtual function found in BINFO, return the final
+   overrider at that index in the vtable.  This should only be used when we
+   know that BINFO is correct for the dynamic type of the object.  */
+
+tree
+lookup_vfn_in_binfo (tree idx, tree binfo)
+{
+  int ix = tree_to_shwi (idx);
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    ix /= MAX (TARGET_VTABLE_USES_DESCRIPTORS, 1);
+  while (BINFO_PRIMARY_P (binfo))
+    /* BINFO_VIRTUALS in a primary base isn't accurate, find the derived
+       class that actually owns the vtable.  */
+    binfo = BINFO_INHERITANCE_CHAIN (binfo);
+  tree virtuals = BINFO_VIRTUALS (binfo);
+  return TREE_VALUE (chain_index (ix, virtuals));
+}
+
 /* Update an entry in the vtable for BINFO, which is in the hierarchy
    dominated by T.  FN is the old function; VIRTUALS points to the
    corresponding position in the new BINFO_VIRTUALS list.  IX is the index
@@ -3195,6 +3213,60 @@ add_implicitly_declared_members (tree t, tree* access_decls,
     }
 }
 
+/* Cache of enum_min_precision values.  */
+static GTY((deletable)) hash_map<tree, int> *enum_to_min_precision;
+
+/* Return the minimum precision of a bit-field needed to store all
+   enumerators of ENUMERAL_TYPE TYPE.  */
+
+static int
+enum_min_precision (tree type)
+{
+  type = TYPE_MAIN_VARIANT (type);
+  /* For unscoped enums without fixed underlying type and without mode
+     attribute we can just use precision of the underlying type.  */
+  if (UNSCOPED_ENUM_P (type)
+      && !ENUM_FIXED_UNDERLYING_TYPE_P (type)
+      && !lookup_attribute ("mode", TYPE_ATTRIBUTES (type)))
+    return TYPE_PRECISION (ENUM_UNDERLYING_TYPE (type));
+
+  if (enum_to_min_precision == NULL)
+    enum_to_min_precision = hash_map<tree, int>::create_ggc (37);
+
+  bool existed;
+  int &prec = enum_to_min_precision->get_or_insert (type, &existed);
+  if (existed)
+    return prec;
+
+  tree minnode, maxnode;
+  if (TYPE_VALUES (type))
+    {
+      minnode = maxnode = NULL_TREE;
+      for (tree values = TYPE_VALUES (type);
+	   values; values = TREE_CHAIN (values))
+	{
+	  tree decl = TREE_VALUE (values);
+	  tree value = DECL_INITIAL (decl);
+	  if (value == error_mark_node)
+	    value = integer_zero_node;
+	  if (!minnode)
+	    minnode = maxnode = value;
+	  else if (tree_int_cst_lt (maxnode, value))
+	    maxnode = value;
+	  else if (tree_int_cst_lt (value, minnode))
+	    minnode = value;
+	}
+    }
+  else
+    minnode = maxnode = integer_zero_node;
+
+  signop sgn = tree_int_cst_sgn (minnode) >= 0 ? UNSIGNED : SIGNED;
+  int lowprec = tree_int_cst_min_precision (minnode, sgn);
+  int highprec = tree_int_cst_min_precision (maxnode, sgn);
+  prec = MAX (lowprec, highprec);
+  return prec;
+}
+
 /* FIELD is a bit-field.  We are finishing the processing for its
    enclosing type.  Issue any appropriate messages and set appropriate
    flags.  Returns false if an error has been diagnosed.  */
@@ -3255,7 +3327,7 @@ check_bitfield_decl (tree field)
 		    "width of %qD exceeds its type", field);
       else if (TREE_CODE (type) == ENUMERAL_TYPE)
 	{
-	  int prec = TYPE_PRECISION (ENUM_UNDERLYING_TYPE (type));
+	  int prec = enum_min_precision (type);
 	  if (compare_tree_int (w, prec) < 0)
 	    warning_at (DECL_SOURCE_LOCATION (field), 0,
 			"%qD is too small to hold all values of %q#T",

@@ -461,11 +461,16 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 		       machine_mode mode, bool unaligned_mems)
 {
   enum rtx_code code = GET_CODE (x);
-  gcc_checking_assert (mode == BLKmode || known_size_p (size));
+  gcc_checking_assert (mode == BLKmode
+		       || mode == VOIDmode
+		       || known_size_p (size));
 
   /* The offset must be a multiple of the mode size if we are considering
      unaligned memory references on strict alignment machines.  */
-  if (STRICT_ALIGNMENT && unaligned_mems && mode != BLKmode)
+  if (STRICT_ALIGNMENT
+      && unaligned_mems
+      && mode != BLKmode
+      && mode != VOIDmode)
     {
       poly_int64 actual_offset = offset;
 
@@ -4756,7 +4761,7 @@ nonzero_bits1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 	       || ((extend_op = load_extend_op (inner_mode)) == SIGN_EXTEND
 		   ? val_signbit_known_set_p (inner_mode, nonzero)
 		   : extend_op != ZERO_EXTEND)
-	       || (!MEM_P (SUBREG_REG (x)) && !REG_P (SUBREG_REG (x))))
+	       || !MEM_P (SUBREG_REG (x)))
 	      && xmode_width > inner_width)
 	    nonzero
 	      |= (GET_MODE_MASK (GET_MODE (x)) & ~GET_MODE_MASK (inner_mode));

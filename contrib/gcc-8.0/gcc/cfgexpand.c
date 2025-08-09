@@ -2972,6 +2972,9 @@ expand_asm_stmt (gasm *stmt)
 			   regname);
 		    return;
 		  }
+		/* Clobbering the stack pointer register.  */
+		else if (reg == (int) STACK_POINTER_REGNUM)
+		  crtl->sp_is_clobbered_by_asm = true;
 
 	        SET_HARD_REG_BIT (clobbered_regs, reg);
 	        rtx x = gen_rtx_REG (reg_raw_mode[reg], reg);
@@ -4323,7 +4326,11 @@ expand_debug_expr (tree exp)
       op0 = DECL_RTL_IF_SET (exp);
 
       /* This decl was probably optimized away.  */
-      if (!op0)
+      if (!op0
+	  /* At least label RTXen are sometimes replaced by
+	     NOTE_INSN_DELETED_LABEL.  Any notes here are not
+	     handled by copy_rtx.  */
+	  || NOTE_P (op0))
 	{
 	  if (!VAR_P (exp)
 	      || DECL_EXTERNAL (exp)
@@ -5712,7 +5719,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 			  && !target_for_debug_bind (var))
 			goto delink_debug_stmt;
 
-		      if (DECL_P (var))
+		      if (DECL_P (var) && !VECTOR_TYPE_P (TREE_TYPE (var)))
 			mode = DECL_MODE (var);
 		      else
 			mode = TYPE_MODE (TREE_TYPE (var));
@@ -5729,7 +5736,10 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 
 		      value = gimple_debug_source_bind_get_value (stmt);
 
-		      mode = DECL_MODE (var);
+		      if (!VECTOR_TYPE_P (TREE_TYPE (var)))
+			mode = DECL_MODE (var);
+		      else
+			mode = TYPE_MODE (TREE_TYPE (var));
 
 		      val = gen_rtx_VAR_LOCATION (mode, var, (rtx)value,
 						  VAR_INIT_STATUS_UNINITIALIZED);

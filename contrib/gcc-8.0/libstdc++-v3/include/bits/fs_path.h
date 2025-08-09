@@ -107,7 +107,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
     template<typename _Tp1, typename _Tp2 = void>
       using _Path = typename
 	std::enable_if<__and_<__not_<is_same<remove_cv_t<_Tp1>, path>>,
-			      __not_<is_void<_Tp1>>,
+			      __not_<is_void<remove_pointer_t<_Tp1>>>,
 			      __constructible_from<_Tp1, _Tp2>>::value,
 		       path>::type;
 
@@ -168,7 +168,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
     path(path&& __p) noexcept
     : _M_pathname(std::move(__p._M_pathname)), _M_type(__p._M_type)
     {
-      _M_split_cmpts();
+      if (_M_type == _Type::_Multi)
+	_M_split_cmpts();
       __p.clear();
     }
 
@@ -476,9 +477,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 
     template<typename _CharT, typename _Traits, typename _Allocator>
       static basic_string<_CharT, _Traits, _Allocator>
-      _S_str_convert(const string_type&, const _Allocator& __a);
+      _S_str_convert(basic_string_view<value_type>, const _Allocator&);
 
-    bool _S_is_dir_sep(value_type __ch)
+    static bool _S_is_dir_sep(value_type __ch)
     {
 #ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
       return __ch == L'/' || __ch == preferred_separator;
@@ -789,6 +790,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
   inline path&
   path::operator=(path&& __p) noexcept
   {
+    if (&__p == this)
+      return *this;
+
     _M_pathname = std::move(__p._M_pathname);
     _M_cmpts = std::move(__p._M_cmpts);
     _M_type = __p._M_type;
@@ -869,7 +873,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 
   template<typename _CharT, typename _Traits, typename _Allocator>
     std::basic_string<_CharT, _Traits, _Allocator>
-    path::_S_str_convert(const string_type& __str, const _Allocator& __a)
+    path::_S_str_convert(basic_string_view<value_type> __str,
+			 const _Allocator& __a)
     {
       if (__str.size() == 0)
 	return std::basic_string<_CharT, _Traits, _Allocator>(__a);
@@ -967,7 +972,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 #else
       const value_type __slash = '/';
 #endif
-      string_type __str(__a);
+      using _Alloc2 = typename allocator_traits<_Allocator>::template
+	rebind_alloc<value_type>;
+      basic_string<value_type, char_traits<value_type>, _Alloc2> __str(__a);
 
       if (_M_type == _Type::_Root_dir)
 	__str.assign(1, __slash);
@@ -979,7 +986,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	    {
 	      if (__add_slash)
 		__str += __slash;
-	      __str += __elem._M_pathname;
+	      __str += basic_string_view<value_type>(__elem._M_pathname);
 	      __add_slash = __elem._M_type == _Type::_Filename;
 	    }
 	}

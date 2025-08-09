@@ -899,6 +899,9 @@ cond_expr_object_size (struct object_size_info *osi, tree var, gimple *stmt)
   else
     expr_object_size (osi, var, then_);
 
+  if (object_sizes[object_size_type][varno] == unknown[object_size_type])
+    return reexamine;
+
   if (TREE_CODE (else_) == SSA_NAME)
     reexamine |= merge_object_sizes (osi, var, else_, 0);
   else
@@ -1375,7 +1378,10 @@ pass_object_sizes::execute (function *fun)
 	    }
 
 	  /* Propagate into all uses and fold those stmts.  */
-	  replace_uses_by (lhs, result);
+	  if (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
+	    replace_uses_by (lhs, result);
+	  else
+	    replace_call_with_value (&i, result);
 	}
     }
 

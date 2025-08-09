@@ -144,6 +144,30 @@ vect_get_smallest_scalar_type (gimple *stmt, HOST_WIDE_INT *lhs_size_unit,
       if (rhs < lhs)
         scalar_type = rhs_type;
     }
+  else if (gcall *call = dyn_cast <gcall *> (stmt))
+    {
+      unsigned int i = 0;
+      if (gimple_call_internal_p (call))
+	{
+	  internal_fn ifn = gimple_call_internal_fn (call);
+	  if (internal_load_fn_p (ifn) || internal_store_fn_p (ifn))
+	    /* gimple_expr_type already picked the type of the loaded
+	       or stored data.  */
+	    i = ~0U;
+	  else if (internal_fn_mask_index (ifn) == 0)
+	    i = 1;
+	}
+      if (i < gimple_call_num_args (call))
+	{
+	  tree rhs_type = TREE_TYPE (gimple_call_arg (call, i));
+	  if (tree_fits_uhwi_p (TYPE_SIZE_UNIT (rhs_type)))
+	    {
+	      rhs = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (rhs_type));
+	      if (rhs < lhs)
+		scalar_type = rhs_type;
+	    }
+	}
+    }
 
   *lhs_size_unit = lhs;
   *rhs_size_unit = rhs;
@@ -538,8 +562,19 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	     reversed (to make distance vector positive), and the actual
 	     distance is negative.  */
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+	    dump_printf_loc (MSG_NOTE, vect_location,
 	                     "dependence distance negative.\n");
+	  /* When doing outer loop vectorization, we need to check if there is
+	     a backward dependence at the inner loop level if the dependence
+	     at the outer loop is reversed.  See PR81740.  */
+	  if (nested_in_vect_loop_p (loop, DR_STMT (dra))
+	      || nested_in_vect_loop_p (loop, DR_STMT (drb)))
+	    {
+	      unsigned inner_depth = index_in_loop_nest (loop->inner->num,
+							 DDR_LOOP_NEST (ddr));
+	      if (dist_v[inner_depth] < 0)
+		return true;
+	    }
 	  /* Record a negative dependence distance to later limit the
 	     amount of stmt copying / unrolling we can perform.
 	     Only need to handle read-after-write dependence.  */
@@ -555,7 +590,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	{
 	  /* The dependence distance requires reduction of the maximal
 	     vectorization factor.  */
-	  *max_vf = abs (dist);
+	  *max_vf = abs_dist;
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_NOTE, vect_location,
 	                     "adjusting maximal vectorization factor to %i\n",
@@ -3210,14 +3245,14 @@ vect_compile_time_alias (struct data_reference *a, struct data_reference *b,
   if (tree_int_cst_compare (DR_STEP (a), size_zero_node) < 0)
     {
       const_length_a = (-wi::to_poly_wide (segment_length_a)).force_uhwi ();
-      offset_a = (offset_a + access_size_a) - const_length_a;
+      offset_a -= const_length_a;
     }
   else
     const_length_a = tree_to_poly_uint64 (segment_length_a);
   if (tree_int_cst_compare (DR_STEP (b), size_zero_node) < 0)
     {
       const_length_b = (-wi::to_poly_wide (segment_length_b)).force_uhwi ();
-      offset_b = (offset_b + access_size_b) - const_length_b;
+      offset_b -= const_length_b;
     }
   else
     const_length_b = tree_to_poly_uint64 (segment_length_b);

@@ -1363,6 +1363,8 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
       if (target == 0
 	  || target == op0
 	  || target == op1
+	  || reg_overlap_mentioned_p (target, op0)
+	  || reg_overlap_mentioned_p (target, op1)
 	  || !valid_multiword_target_p (target))
 	target = gen_reg_rtx (int_mode);
 
@@ -1437,6 +1439,8 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	  if (target == 0
 	      || target == op0
 	      || target == op1
+	      || reg_overlap_mentioned_p (target, op0)
+	      || reg_overlap_mentioned_p (target, op1)
 	      || !valid_multiword_target_p (target))
 	    target = gen_reg_rtx (int_mode);
 
@@ -1495,6 +1499,8 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	  || target == op0
 	  || target == op1
 	  || !REG_P (target)
+	  || reg_overlap_mentioned_p (target, op0)
+	  || reg_overlap_mentioned_p (target, op1)
 	  || !valid_multiword_target_p (target))
 	target = gen_reg_rtx (int_mode);
 
@@ -2632,6 +2638,7 @@ expand_absneg_bit (enum rtx_code code, scalar_float_mode mode,
 
   if (target == 0
       || target == op0
+      || reg_overlap_mentioned_p (target, op0)
       || (nwords > 1 && !valid_multiword_target_p (target)))
     target = gen_reg_rtx (mode);
 
@@ -2910,7 +2917,10 @@ expand_unop (machine_mode mode, optab unoptab, rtx op0, rtx target,
       int i;
       rtx_insn *insns;
 
-      if (target == 0 || target == op0 || !valid_multiword_target_p (target))
+      if (target == 0
+	  || target == op0
+	  || reg_overlap_mentioned_p (target, op0)
+	  || !valid_multiword_target_p (target))
 	target = gen_reg_rtx (int_mode);
 
       start_sequence ();
@@ -3420,6 +3430,8 @@ expand_copysign_bit (scalar_float_mode mode, rtx op0, rtx op1, rtx target,
   if (target == 0
       || target == op0
       || target == op1
+      || reg_overlap_mentioned_p (target, op0)
+      || reg_overlap_mentioned_p (target, op1)
       || (nwords > 1 && !valid_multiword_target_p (target)))
     target = gen_reg_rtx (mode);
 
@@ -5518,6 +5530,8 @@ expand_vec_perm_const (machine_mode mode, rtx v0, rtx v1,
       if (shift_amt)
 	{
 	  struct expand_operand ops[3];
+	  if (shift_amt == const0_rtx)
+	    return v0;
 	  if (shift_code != CODE_FOR_nothing)
 	    {
 	      create_output_operand (&ops[0], target, mode);
@@ -5778,6 +5792,25 @@ expand_vec_cond_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
   icode = get_vcond_icode (mode, cmp_op_mode, unsignedp);
   if (icode == CODE_FOR_nothing)
     {
+      if (tcode == LT_EXPR
+	  && op0a == op0
+	  && TREE_CODE (op0) == VECTOR_CST)
+	{
+	  /* A VEC_COND_EXPR condition could be folded from EQ_EXPR/NE_EXPR
+	     into a constant when only get_vcond_eq_icode is supported.
+	     Verify < 0 and != 0 behave the same and change it to NE_EXPR.  */
+	  unsigned HOST_WIDE_INT nelts;
+	  if (!VECTOR_CST_NELTS (op0).is_constant (&nelts))
+	    {
+	      if (VECTOR_CST_STEPPED_P (op0))
+		return 0;
+	      nelts = vector_cst_encoded_nelts (op0);
+	    }
+	  for (unsigned int i = 0; i < nelts; ++i)
+	    if (tree_int_cst_sgn (vector_cst_elt (op0, i)) == 1)
+	      return 0;
+	  tcode = NE_EXPR;
+	}
       if (tcode == EQ_EXPR || tcode == NE_EXPR)
 	icode = get_vcond_eq_icode (mode, cmp_op_mode);
       if (icode == CODE_FOR_nothing)
