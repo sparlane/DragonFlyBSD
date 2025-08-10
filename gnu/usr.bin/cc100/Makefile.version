@@ -1,0 +1,10 @@
+# GCC version scheme change burned us a bit.
+
+GCCCOMPLETEVER=	10.5
+GCCMAJORVER=	10
+GCCRELEASE=	Release # choices are "Snapshot" or "Release"
+GCCDATESTAMP=	2023-07-07
+GCCSHORTDATE=	${GCCDATESTAMP:S/-//g}
+GCCPOINTVER=	10.0
+GCCSHORTVER=	100
+MANPAGEVER=	100
