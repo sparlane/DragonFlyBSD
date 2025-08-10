@@ -1,0 +1,10 @@
+# GCC version scheme change burned us a bit.
+
+GCCCOMPLETEVER=	9.5
+GCCMAJORVER=	9
+GCCRELEASE=	Release # choices are "Snapshot" or "Release"
+GCCDATESTAMP=	2022-05-27
+GCCSHORTDATE=	${GCCDATESTAMP:S/-//g}
+GCCPOINTVER=	9.0
+GCCSHORTVER=	90
+MANPAGEVER=	90
