@@ -92,7 +92,7 @@ DESTDIRBASE:=		${OBJTREE}${.CURDIR}
 .MAKEFLAGS:=	${.MAKEFLAGS:NDESTDIR=*}
 
 # This section sets the tools used to build the world/kernel
-WORLD_CCVER?=		gcc80
+WORLD_CCVER?=		gcc110
 WORLD_LDVER?=		ld.bfd
 WORLD_BINUTILSVER?=	binutils234
 
@@ -1039,20 +1039,21 @@ bstrap-${_tool}!
 .warning undefined WORLD_ALTCOMPILER
 .endif
 
-# gcc80 is now the default compiler.  See sys.mk for WORLD_ALTCOMPILER default
+# gcc110 is now the default compiler.  See sys.mk for WORLD_ALTCOMPILER default
 # and this file for WORLD_CCVER.
 #
 _gcc47_cross= gnu/usr.bin/cc47
 _gcc80_cross= gnu/usr.bin/cc80
+_gcc110_cross= gnu/usr.bin/cc110
 _gcc_common_cross= lib/libz gnu/usr.bin/gmp gnu/usr.bin/mpfr gnu/usr.bin/mpc
 
 .if !defined(NO_ALTCOMPILER)
 . if defined(WORLD_ALTCOMPILER) && (${WORLD_ALTCOMPILER} == "all" || ${WORLD_ALTCOMPILER:Mgcc47})
-_altcompiler_cross+= ${_gcc47_cross}
+_altcompiler_cross+= ${_gcc80_cross}
 . endif
 .endif
 
-_basecompiler_cross= ${_gcc80_cross}
+_basecompiler_cross= ${_gcc110_cross}
 
 _custom_cross= libexec/customcc
 _binutils= gnu/usr.bin/${WORLD_BINUTILSVER}
@@ -1106,13 +1107,13 @@ hierarchy:
 #
 libraries:
 	cd ${.CURDIR}; \
+	    HOST_CCVER=${HOST_CCVER} CCVER=gcc110 \
+		make -f Makefile.inc1 _startup_libs110 -DSYSBUILD -DLIBGCC_ONLY;
+.if !defined(NO_ALTCOMPILER)
+. if defined(WORLD_ALTCOMPILER) && (${WORLD_ALTCOMPILER} == "all" || ${WORLD_ALTCOMPILER:Mgcc80})
+	cd ${.CURDIR}; \
 	    HOST_CCVER=${HOST_CCVER} CCVER=gcc80 \
 		make -f Makefile.inc1 _startup_libs80 -DSYSBUILD -DLIBGCC_ONLY;
-.if !defined(NO_ALTCOMPILER)
-. if defined(WORLD_ALTCOMPILER) && (${WORLD_ALTCOMPILER} == "all" || ${WORLD_ALTCOMPILER:Mgcc47})
-	cd ${.CURDIR}; \
-	    HOST_CCVER=${HOST_CCVER} CCVER=gcc47 \
-		make -f Makefile.inc1 _startup_libs47 -DSYSBUILD -DLIBGCC_ONLY;
 . endif
 .endif
 	cd ${.CURDIR}; \
@@ -1141,13 +1142,20 @@ _startup_libs80=	gnu/usr.bin/cc80/cc_prep \
 			gnu/lib/gcc80/libgcc_eh \
 			gnu/lib/gcc80/libgcc_pic
 
+_startup_libs110=	gnu/usr.bin/cc110/cc_prep \
+			gnu/usr.bin/cc110/cc_tools \
+			gnu/lib/gcc110/csu \
+			gnu/lib/gcc110/libgcc \
+			gnu/lib/gcc110/libgcc_eh \
+			gnu/lib/gcc110/libgcc_pic
+
 .if !defined(NO_ALTCOMPILER)
-. if defined(WORLD_ALTCOMPILER) && (${WORLD_ALTCOMPILER} == "all" || ${WORLD_ALTCOMPILER:Mgcc47})
-_startup_libs_alt+=	_startup_libs47
+. if defined(WORLD_ALTCOMPILER) && (${WORLD_ALTCOMPILER} == "all" || ${WORLD_ALTCOMPILER:Mgcc80})
+_startup_libs_alt+=	_startup_libs80
 . endif
 .endif
 
-_startup_libs_base=	_startup_libs80
+_startup_libs_base=	_startup_libs110
 
 _startup_libs=		lib/csu lib/libc lib/libc_rtld
 lib/libc__L: lib/csu__L
