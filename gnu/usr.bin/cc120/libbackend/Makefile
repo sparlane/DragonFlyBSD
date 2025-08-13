@@ -55,7 +55,12 @@ BACKEND_OBJS= \
 	cfgloopanal.o \
 	cfgloopmanip.o \
 	cfgrtl.o \
+	ctfc.o \
+	ctfout.o \
+	btfout.o \
 	symtab.o \
+	symtab-thunks.o \
+	symtab-clones.o \
 	cgraph.o \
 	cgraphbuild.o \
 	cgraphunit.o \
@@ -65,6 +70,7 @@ BACKEND_OBJS= \
 	compare-elim.o \
 	context.o \
 	convert.o \
+	coroutine-passes.o \
 	coverage.o \
 	cppbuiltin.o \
 	cppdefault.o \
@@ -83,6 +89,7 @@ BACKEND_OBJS= \
 	df-problems.o \
 	df-scan.o \
 	dfp.o \
+	digraph.o \
 	dojump.o \
 	dominance.o \
 	domwalk.o \
@@ -91,6 +98,7 @@ BACKEND_OBJS= \
 	dumpfile.o \
 	dwarf2asm.o \
 	dwarf2cfi.o \
+	dwarf2ctf.o \
 	dwarf2out.o \
 	early-remat.o \
 	emit-rtl.o \
@@ -113,14 +121,26 @@ BACKEND_OBJS= \
 	ggc-common.o \
 	ggc-tests.o \
 	gimple.o \
+	gimple-array-bounds.o \
 	gimple-builder.o \
 	gimple-expr.o \
+	gimple-if-to-switch.o \
 	gimple-iterator.o \
 	gimple-fold.o \
+	gimple-harden-conditionals.o \
 	gimple-laddress.o \
+	gimple-loop-interchange.o \
 	gimple-loop-jam.o \
+	gimple-loop-versioning.o \
 	gimple-low.o \
+	gimple-predicate-analysis.o \
 	gimple-pretty-print.o \
+	gimple-range.o \
+	gimple-range-cache.o \
+	gimple-range-edge.o \
+	gimple-range-fold.o \
+	gimple-range-gori.o \
+	gimple-range-trace.o \
 	gimple-ssa-backprop.o \
 	gimple-ssa-evrp.o \
 	gimple-ssa-evrp-analyze.o \
@@ -130,17 +150,26 @@ BACKEND_OBJS= \
 	gimple-ssa-store-merging.o \
 	gimple-ssa-strength-reduction.o \
 	gimple-ssa-sprintf.o \
+	gimple-ssa-warn-access.o \
 	gimple-ssa-warn-alloca.o \
 	gimple-ssa-warn-restrict.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
 	gimple-walk.o \
+	gimple-warn-recursion.o \
 	gimplify.o \
 	gimplify-me.o \
 	godump.o \
 	graph.o \
 	graphds.o \
+	graphviz.o \
 	graphite.o \
+	graphite-isl-ast-to-gimple.o \
+	graphite-dependences.o \
+	graphite-optimize-isl.o \
+	graphite-poly.o \
+	graphite-scop-detection.o \
+	graphite-sese-to-poly.o \
 	gtype-desc.o \
 	haifa-sched.o \
 	hw-doloop.o \
@@ -159,6 +188,7 @@ BACKEND_OBJS= \
 	ipa-split.o \
 	ipa-inline.o \
 	ipa-comdats.o \
+	ipa-free-lang-data.o \
 	ipa-visibility.o \
 	ipa-inline-analysis.o \
 	ipa-inline-transform.o \
@@ -216,15 +246,22 @@ BACKEND_OBJS= \
 	omp-expand.o \
 	omp-general.o \
 	omp-low.o \
+	omp-oacc-kernels-decompose.o \
+	omp-oacc-neuter-broadcast.o \
 	omp-simd-clone.o \
+	opt-problem.o \
 	optabs.o \
 	optabs-libfuncs.o \
 	optabs-query.o \
 	optabs-tree.o \
+	optinfo.o \
+	optinfo-emit-json.o \
 	options-save.o \
 	opts-global.o \
+	ordered-hash-map-tests.o \
 	passes.o \
 	plugin.o \
+	pointer-query.o \
 	postreload-gcse.o \
 	postreload.o \
 	predict.o \
@@ -233,6 +270,8 @@ BACKEND_OBJS= \
 	print-tree.o \
 	profile.o \
 	profile-count.o \
+	range.o \
+	range-op.o \
 	read-md.o \
 	read-rtl.o \
 	read-rtl-function.o \
@@ -249,6 +288,11 @@ BACKEND_OBJS= \
 	reorg.o \
 	resource.o \
 	rtl-error.o \
+	rtl-ssa/accesses.o \
+	rtl-ssa/blocks.o \
+	rtl-ssa/changes.o \
+	rtl-ssa/functions.o \
+	rtl-ssa/insns.o \
 	rtl.o \
 	rtlhash.o \
 	rtlanal.o \
@@ -267,6 +311,7 @@ BACKEND_OBJS= \
 	sparseset.o \
 	spellcheck.o \
 	spellcheck-tree.o \
+	splay-tree-utils.o \
 	sreal.o \
 	stack-ptr-mod.o \
 	statistics.o \
@@ -296,6 +341,7 @@ BACKEND_OBJS= \
 	tree-data-ref.o \
 	tree-dfa.o \
 	tree-diagnostic.o \
+	tree-diagnostic-path.o \
 	tree-dump.o \
 	tree-eh.o \
 	tree-emutls.o \
@@ -339,6 +385,7 @@ BACKEND_OBJS= \
 	tree-ssa-loop.o \
 	tree-ssa-math-opts.o \
 	tree-ssa-operands.o \
+	gimple-range-path.o \
 	tree-ssa-phiopt.o \
 	tree-ssa-phiprop.o \
 	tree-ssa-pre.o \
@@ -364,6 +411,7 @@ BACKEND_OBJS= \
 	tree-streamer-out.o \
 	tree-tailcall.o \
 	tree-vect-generic.o \
+	gimple-isel.o \
 	tree-vect-patterns.o \
 	tree-vect-data-refs.o \
 	tree-vect-stmts.o \
@@ -375,7 +423,13 @@ BACKEND_OBJS= \
 	tree-vector-builder.o \
 	tree-vrp.o \
 	tree.o \
+	tristate.o \
 	valtrack.o \
+	value-pointer-equiv.o \
+	value-query.o \
+	value-range.o \
+	value-range-equiv.o \
+	value-relation.o \
 	value-prof.o \
 	var-tracking.o \
 	varasm.o \
@@ -383,7 +437,10 @@ BACKEND_OBJS= \
 	vec-perm-indices.o \
 	vr-values.o \
 	vtable-verify.o \
+	warning-control.o \
 	web.o \
+	wide-int.o \
+	wide-int-print.o \
 	$(out_object_file) \
 	$(EXTRA_OBJS) \
 	$(host_hook_obj)
@@ -417,15 +474,6 @@ BACKEND_OBJS+=	fibonacci_heap.o function-tests.o \
 		selftest-run-tests.o typed-splay-tree.o
 .endif
 
-# only when HAVE_isl
-#BACKEND_OBJS+= \
-	graphite-isl-ast-to-gimple.o \
-	graphite-dependences.o \
-	graphite-optimize-isl.o \
-	graphite-poly.o \
-	graphite-scop-detection.o \
-	graphite-sese-to-poly.o
-
 # only when VMS_DEBUGGING_INFO
 #BACKEND_OBJS+= \
 	vmsdbgout.o
@@ -435,19 +483,6 @@ BACKEND_OBJS+=	fibonacci_heap.o function-tests.o \
 	xcoffout.o
 
 OBJS=	${BACKEND_OBJS}
-SRCS=	coroutine-passes.cc digraph.cc \
-	function-abi.cc \
-	gimple-loop-interchange.cc gimple-loop-versioning.cc \
-	gimple-array-bounds.cc gimple-if-to-switch.cc gimple-isel.cc \
-	gimple-range.cc gimple-range-cache.cc gimple-range-edge.cc gimple-range-gori.cc \
-	graphviz.cc \
-	omp-oacc-kernels-decompose.cc \
-	opt-problem.cc optinfo.cc optinfo-emit-json.cc \
-	range.cc range-op.cc \
-	symtab-clones.cc symtab-thunks.cc \
-	tree-diagnostic-path.cc \
-	tristate.cc value-query.cc value-range.cc value-range-equiv.cc \
-	wide-int.cc wide-int-print.cc
 
 .if ${CFLAGS:M-DTOOLCHAIN_CHECKING}
 SRCS+=	unique-ptr-tests.cc
@@ -520,9 +555,8 @@ CFLAGS+=	-Wno-narrowing
 CXXFLAGS+=	-Wno-c++11-narrowing
 .endif
 
-# hack to force c++ compiler to compile *.c files to create library
 .for cfile in ${BACKEND_OBJS}
-${cfile}: ${cfile:.o=.c}
+${cfile}: ${cfile:.o=.cc}
 	${CXX} ${STATIC_CXXFLAGS} ${CXXFLAGS} -c ${.IMPSRC} -o ${.TARGET}
 .endfor
 

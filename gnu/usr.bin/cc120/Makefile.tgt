@@ -20,9 +20,9 @@ CPP_ID_DATA_H=		${GCCDIR}/libcpp/include/line-map.h \
 			${GCCDIR}/libcpp/include/cpplib.h
 
 md_file=		${GCCDIR}/gcc/config/i386/i386.md
-out_file=		$(srcdir)/config/i386/i386.c
+out_file=		$(srcdir)/config/i386/i386.cc
 
-EXTRA_GCC_SRCS=		driver-i386.c
+EXTRA_GCC_SRCS=		driver-i386.cc
 GTFILES_SRCDIR=		$(srcdir)
 
 # from gcc/config/i386/t-i386

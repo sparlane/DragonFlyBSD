@@ -7,7 +7,6 @@ lang_tree_files+=	cp/cp-tree.def
 lang_tree_files+=	objc/objc-tree.def
 
 optionsfiles=		${GCCDIR}/gcc/ada/gcc-interface/lang.opt
-optionsfiles+=		${GCCDIR}/gcc/brig/lang.opt
 optionsfiles+=		${GCCDIR}/gcc/d/lang.opt
 optionsfiles+=		${GCCDIR}/gcc/fortran/lang.opt
 optionsfiles+=		${GCCDIR}/gcc/go/lang.opt
@@ -28,8 +27,8 @@ LANG_SPECS_FILES=	cp/lang-specs.h \
 			lto/lang-specs.h
 
 # Object files for gcc driver.
-GCC_SRCS = gcc.c gcc-main.c ggc-none.c
-EXTRA_GCC_SRCS = driver-i386.c
+GCC_SRCS = gcc.cc gcc-main.cc ggc-none.cc
+EXTRA_GCC_SRCS = driver-i386.cc
 
 # this is directly from GCC's Makefile, beware evil
 # gtype-desc.h will generate wrong if language order changed
@@ -37,7 +36,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(host_xm_file_list) \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
   $(srcdir)/wide-int.h $(srcdir)/alias.h \
-  $(srcdir)/coverage.c  $(srcdir)/rtl.h \
+  $(srcdir)/coverage.cc  $(srcdir)/rtl.h \
   $(srcdir)/optabs.h $(srcdir)/tree.h $(srcdir)/tree-core.h \
   $(srcdir)/libfuncs.h $(SYMTAB_H) \
   $(srcdir)/real.h $(srcdir)/function.h $(srcdir)/insn-addr.h $(srcdir)/hwint.h \
@@ -47,89 +46,94 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/ipa-ref.h $(srcdir)/cgraph.h \
   $(srcdir)/symtab-thunks.h $(srcdir)/symtab-thunks.cc \
   $(srcdir)/symtab-clones.h \
-  $(srcdir)/reload.h $(srcdir)/caller-save.c $(srcdir)/symtab.c \
-  $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
-  $(srcdir)/ipa-prop.c $(srcdir)/ipa-cp.c $(srcdir)/ipa-utils.h \
-  $(srcdir)/ipa-param-manipulation.h $(srcdir)/ipa-sra.c $(srcdir)/dbxout.c \
-  $(srcdir)/ipa-modref.h $(srcdir)/ipa-modref.c \
+  $(srcdir)/reload.h $(srcdir)/caller-save.cc $(srcdir)/symtab.cc \
+  $(srcdir)/alias.cc $(srcdir)/bitmap.cc $(srcdir)/cselib.cc $(srcdir)/cgraph.cc \
+  $(srcdir)/ipa-prop.cc $(srcdir)/ipa-cp.cc $(srcdir)/ipa-utils.h \
+  $(srcdir)/ipa-param-manipulation.h $(srcdir)/ipa-sra.cc $(srcdir)/dbxout.cc \
+  $(srcdir)/ipa-modref.h $(srcdir)/ipa-modref.cc \
   $(srcdir)/ipa-modref-tree.h \
   $(srcdir)/signop.h \
+  $(srcdir)/diagnostic-spec.h $(srcdir)/diagnostic-spec.cc \
   $(srcdir)/dwarf2out.h \
-  $(srcdir)/dwarf2asm.c \
-  $(srcdir)/dwarf2cfi.c \
-  $(srcdir)/dwarf2out.c \
-  $(srcdir)/tree-vect-generic.c \
+  $(srcdir)/dwarf2asm.cc \
+  $(srcdir)/dwarf2cfi.cc \
+  $(srcdir)/dwarf2ctf.cc \
+  $(srcdir)/dwarf2out.cc \
+  $(srcdir)/ctfc.h \
+  $(srcdir)/ctfout.cc \
+  $(srcdir)/btfout.cc \
+  $(srcdir)/tree-vect-generic.cc \
   $(srcdir)/gimple-isel.cc \
-  $(srcdir)/dojump.c $(srcdir)/emit-rtl.h \
-  $(srcdir)/emit-rtl.c $(srcdir)/except.h $(srcdir)/explow.c $(srcdir)/expr.c \
+  $(srcdir)/dojump.cc $(srcdir)/emit-rtl.h \
+  $(srcdir)/emit-rtl.cc $(srcdir)/except.h $(srcdir)/explow.cc $(srcdir)/expr.cc \
   $(srcdir)/expr.h \
-  $(srcdir)/function.c $(srcdir)/except.c \
-  $(srcdir)/ggc-tests.c \
-  $(srcdir)/gcse.c $(srcdir)/godump.c \
-  $(srcdir)/lists.c $(srcdir)/optabs-libfuncs.c \
-  $(srcdir)/profile.c $(srcdir)/mcf.c \
-  $(srcdir)/reg-stack.c $(srcdir)/cfgrtl.c \
-  $(srcdir)/stor-layout.c \
-  $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
+  $(srcdir)/function.cc $(srcdir)/except.cc \
+  $(srcdir)/ggc-tests.cc \
+  $(srcdir)/gcse.cc $(srcdir)/godump.cc \
+  $(srcdir)/lists.cc $(srcdir)/optabs-libfuncs.cc \
+  $(srcdir)/profile.cc $(srcdir)/mcf.cc \
+  $(srcdir)/reg-stack.cc $(srcdir)/cfgrtl.cc \
+  $(srcdir)/stor-layout.cc \
+  $(srcdir)/stringpool.cc $(srcdir)/tree.cc $(srcdir)/varasm.cc \
   $(srcdir)/gimple.h \
   $(srcdir)/gimple-ssa.h \
-  $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
-  $(srcdir)/tree-cfg.c $(srcdir)/tree-ssa-loop-ivopts.c \
-  $(srcdir)/tree-dfa.c \
-  $(srcdir)/tree-iterator.c $(srcdir)/gimple-expr.c \
+  $(srcdir)/tree-ssanames.cc $(srcdir)/tree-eh.cc $(srcdir)/tree-ssa-address.cc \
+  $(srcdir)/tree-cfg.cc $(srcdir)/tree-ssa-loop-ivopts.cc \
+  $(srcdir)/tree-dfa.cc \
+  $(srcdir)/tree-iterator.cc $(srcdir)/gimple-expr.cc \
   $(srcdir)/tree-chrec.h \
-  $(srcdir)/tree-scalar-evolution.c \
+  $(srcdir)/tree-scalar-evolution.cc \
   $(srcdir)/tree-ssa-operands.h \
-  $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
+  $(srcdir)/tree-profile.cc $(srcdir)/tree-nested.cc \
   $(srcdir)/omp-offload.h \
-  $(srcdir)/omp-offload.c \
-  $(srcdir)/omp-general.c \
-  $(srcdir)/omp-low.c \
-  $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c \
-  $(srcdir)/cgraphclones.c \
-  $(srcdir)/tree-phinodes.c \
+  $(srcdir)/omp-general.cc \
+  $(srcdir)/omp-low.cc \
+  $(srcdir)/targhooks.cc $(out_file) $(srcdir)/passes.cc \
+  $(srcdir)/cgraphclones.cc \
+  $(srcdir)/tree-phinodes.cc \
   $(srcdir)/tree-ssa-alias.h \
   $(srcdir)/tree-ssanames.h \
   $(srcdir)/tree-vrp.h \
   $(srcdir)/value-range.h \
   $(srcdir)/ipa-prop.h \
-  $(srcdir)/trans-mem.c \
+  $(srcdir)/trans-mem.cc \
   $(srcdir)/lto-streamer.h \
   $(srcdir)/target-globals.h \
   $(srcdir)/ipa-predicate.h \
   $(srcdir)/ipa-fnsummary.h \
-  $(srcdir)/vtable-verify.c \
-  $(srcdir)/asan.c \
-  $(srcdir)/ubsan.c \
-  $(srcdir)/tsan.c \
-  $(srcdir)/sanopt.c \
-  $(srcdir)/sancov.c \
-  $(srcdir)/ipa-devirt.c \
+  $(srcdir)/vtable-verify.cc \
+  $(srcdir)/asan.cc \
+  $(srcdir)/ubsan.cc \
+  $(srcdir)/tsan.cc \
+  $(srcdir)/sanopt.cc \
+  $(srcdir)/sancov.cc \
+  $(srcdir)/ipa-devirt.cc \
   $(srcdir)/internal-fn.h \
-  $(srcdir)/calls.c \
+  $(srcdir)/calls.cc \
   $(srcdir)/omp-general.h
 
 # Arch specific
 GTFILES_ARCH+= \
-	$(srcdir)/config/i386/i386-builtins.c \
-	$(srcdir)/config/i386/i386-expand.c \
-	$(srcdir)/config/i386/i386-options.c
+	$(srcdir)/config/i386/i386-builtins.cc \
+	$(srcdir)/config/i386/i386-expand.cc \
+	$(srcdir)/config/i386/i386-options.cc
+
 # C
 GTFILES_C+= \
   [c] \
-  $(srcdir)/c/c-lang.c \
+  $(srcdir)/c/c-lang.cc \
   $(srcdir)/c/c-tree.h \
-  $(srcdir)/c/c-decl.c \
-  $(srcdir)/c-family/c-common.c \
+  $(srcdir)/c/c-decl.cc \
+  $(srcdir)/c-family/c-common.cc \
   $(srcdir)/c-family/c-common.h \
   $(srcdir)/c-family/c-objc.h \
-  $(srcdir)/c-family/c-cppbuiltin.c \
+  $(srcdir)/c-family/c-cppbuiltin.cc \
   $(srcdir)/c-family/c-pragma.h \
-  $(srcdir)/c-family/c-pragma.c \
-  $(srcdir)/c-family/c-format.c \
-  $(srcdir)/c/c-objc-common.c \
+  $(srcdir)/c-family/c-pragma.cc \
+  $(srcdir)/c-family/c-format.cc \
+  $(srcdir)/c/c-objc-common.cc \
   $(srcdir)/c/c-parser.h \
-  $(srcdir)/c/c-parser.c \
+  $(srcdir)/c/c-parser.cc \
   $(srcdir)/c/c-lang.h
 
 GTFILES_CPP= \
@@ -141,49 +145,47 @@ GTFILES_CPP= \
   $(srcdir)/c-family/c-pragma.h \
   $(srcdir)/cp/decl.h \
   $(srcdir)/cp/parser.h \
-  $(srcdir)/c-family/c-common.c \
-  $(srcdir)/c-family/c-format.c \
-  $(srcdir)/c-family/c-cppbuiltin.c \
-  $(srcdir)/c-family/c-pragma.c \
-  $(srcdir)/cp/call.c \
-  $(srcdir)/cp/class.c \
-  $(srcdir)/cp/constexpr.c \
+  $(srcdir)/c-family/c-common.cc \
+  $(srcdir)/c-family/c-format.cc \
+  $(srcdir)/c-family/c-cppbuiltin.cc \
+  $(srcdir)/c-family/c-pragma.cc \
+  $(srcdir)/cp/call.cc \
+  $(srcdir)/cp/class.cc \
+  $(srcdir)/cp/constexpr.cc \
   $(srcdir)/cp/constraint.cc \
   $(srcdir)/cp/coroutines.cc \
-  $(srcdir)/cp/cp-gimplify.c \
-  $(srcdir)/cp/cp-lang.c \
-  $(srcdir)/cp/cp-objcp-common.c \
-  $(srcdir)/cp/decl.c \
-  $(srcdir)/cp/decl2.c \
-  $(srcdir)/cp/except.c \
-  $(srcdir)/cp/friend.c \
-  $(srcdir)/cp/init.c \
-  $(srcdir)/cp/lambda.c \
-  $(srcdir)/cp/lex.c \
+  $(srcdir)/cp/cp-gimplify.cc \
+  $(srcdir)/cp/cp-lang.cc \
+  $(srcdir)/cp/cp-objcp-common.cc \
+  $(srcdir)/cp/decl.cc \
+  $(srcdir)/cp/decl2.cc \
+  $(srcdir)/cp/except.cc \
+  $(srcdir)/cp/friend.cc \
+  $(srcdir)/cp/init.cc \
+  $(srcdir)/cp/lambda.cc \
+  $(srcdir)/cp/lex.cc \
   $(srcdir)/cp/logic.cc \
-  $(srcdir)/cp/mangle.c \
-  $(srcdir)/cp/method.c \
+  $(srcdir)/cp/mangle.cc \
+  $(srcdir)/cp/method.cc \
   $(srcdir)/cp/module.cc \
-  $(srcdir)/cp/name-lookup.c \
-  $(srcdir)/cp/parser.c \
-  $(srcdir)/cp/pt.c \
-  $(srcdir)/cp/ptree.c \
-  $(srcdir)/cp/rtti.c \
-  $(srcdir)/cp/semantics.c \
-  $(srcdir)/cp/tree.c \
-  $(srcdir)/cp/typeck.c \
-  $(srcdir)/cp/typeck2.c \
-  $(srcdir)/cp/vtable-class-hierarchy.c
+  $(srcdir)/cp/name-lookup.cc \
+  $(srcdir)/cp/parser.cc \
+  $(srcdir)/cp/pt.cc \
+  $(srcdir)/cp/rtti.cc \
+  $(srcdir)/cp/semantics.cc \
+  $(srcdir)/cp/tree.cc \
+  $(srcdir)/cp/typeck2.cc \
+  $(srcdir)/cp/vtable-class-hierarchy.cc
 
 GTFILES_LTO= \
   [lto] \
   $(srcdir)/lto/lto-tree.h \
-  $(srcdir)/lto/lto-lang.c \
-  $(srcdir)/lto/lto.c \
+  $(srcdir)/lto/lto-lang.cc \
+  $(srcdir)/lto/lto.cc \
   $(srcdir)/lto/lto.h \
   $(srcdir)/lto/lto-common.h \
-  $(srcdir)/lto/lto-common.c \
-  $(srcdir)/lto/lto-dump.c
+  $(srcdir)/lto/lto-common.cc \
+  $(srcdir)/lto/lto-dump.cc
 
 # Careful! Order matters, should be sorted.
 GTFILES+= ${GTFILES_ARCH} ${GTFILES_C} ${GTFILES_CPP} ${GTFILES_LTO}
@@ -195,10 +197,10 @@ C_COMMON_OBJS= c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
   c-family/c-lex.o c-family/c-omp.o c-family/c-opts.o c-family/c-pch.o \
   c-family/c-ppoutput.o c-family/c-pragma.o c-family/c-pretty-print.o \
   c-family/c-semantics.o c-family/c-ada-spec.o \
-  c-family/c-ubsan.o \
-  c-family/c-attribs.o c-family/c-warn.o
+  c-family/c-ubsan.o c-family/known-headers.o \
+  c-family/c-attribs.o c-family/c-warn.o c-family/c-spellcheck.o
 
-C_COMMON_SRCS= known-headers.cc c-spellcheck.cc
+C_COMMON_SRCS=
 
 C_TARGET_OBJS=i386-c.o default-c.o
 
@@ -221,16 +223,16 @@ CXX_C_OBJS = attribs.o incpath.o \
 # verbatim from cp/Make-lang.in
 # Language-specific object files for c++.
 CXX_OBJS = \
-	cp/call.o cp/class.o cp/constexpr.o \
-	cp/cp-gimplify.o \
+	cp/call.o cp/class.o cp/constexpr.o cp/constraint.o \
+	cp/coroutines.o cp/cp-gimplify.o \
 	cp/cp-objcp-common.o cp/cp-ubsan.o \
 	cp/cvt.o cp/cxx-pretty-print.o \
 	cp/decl.o cp/decl2.o cp/dump.o \
 	cp/error.o cp/except.o cp/expr.o \
 	cp/friend.o cp/init.o \
-	cp/lambda.o cp/lex.o \
-	cp/mangle.o \
-	cp/method.o \
+	cp/lambda.o cp/lex.o cp/logic.o \
+	cp/mangle.o cp/mapper-client.o cp/mapper-resolver.o \
+	cp/method.o cp/module.o \
 	cp/name-lookup.o cp/optimize.o \
 	cp/parser.o cp/pt.o cp/ptree.o \
 	cp/rtti.o \
@@ -238,5 +240,4 @@ CXX_OBJS = \
 	cp/tree.o cp/typeck.o cp/typeck2.o \
 	cp/vtable-class-hierarchy.o $(CXX_C_OBJS)
 
-CXX_COMMON_SRCS= ${C_COMMON_SRCS} constraint.cc coroutines.cc logic.cc \
-	mapper-client.cc mapper-resolver.cc module.cc
+CXX_COMMON_SRCS= ${C_COMMON_SRCS}

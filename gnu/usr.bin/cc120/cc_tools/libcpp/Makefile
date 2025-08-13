@@ -15,11 +15,11 @@ GOOD_CONFIG=	${.CURDIR}/../../support-libs/libcpp/config.h
 
 CFLAGS+=	-DBOOTSTRAPPING
 
-# From libcpp/Makefile.in
+# From libcpp/Makefile.in (libcpp_a_SOURCES)
 SRCS= \
-	charset.c directives.c errors.c \
-	expr.c files.c identifiers.c init.c lex.c line-map.c macro.c \
-	mkdeps.c pch.c symtab.c traditional.c
+	charset.cc directives.cc errors.cc \
+	expr.cc files.cc identifiers.cc init.cc lex.cc line-map.cc macro.cc \
+	mkdeps.cc pch.cc symtab.cc traditional.cc
 
 localedir.h:
 	touch $@

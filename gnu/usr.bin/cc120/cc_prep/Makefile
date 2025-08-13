@@ -5,15 +5,16 @@ CONTRIBDIR=	${GCCDIR}/gcc
 
 LANGUAGES=	c c++ LTO
 
-version.c: ${CONTRIBDIR}/version.c Makefile ../Makefile.inc
+version.h: Makefile ../Makefile.inc
 	rm -f ${.TARGET}
-	echo '#define BASEVER "${GCCCOMPLETEVER}"' >> ${.TARGET}
-	echo '#define DATESTAMP ""' >> ${.TARGET}
-	echo '#define DEVPHASE ""' >> ${.TARGET}
-	echo '#define REVISION " [DragonFly] ${GCCRELEASE}/${GCCDATESTAMP}"' >> ${.TARGET}
-	echo '#define PKGVERSION ""' >> ${.TARGET}
-	echo '#define BUGURL "<http://bugs.dragonflybsd.org>"' >> ${.TARGET}
-	cat ${.ALLSRC:M*.c} >> ${.TARGET}
+	echo '#ifndef VERSION_H' >> ${.TARGET}
+	echo '#define VERSION_H' >> ${.TARGET}
+	echo "#define GCC_major_version `echo $(GCCCOMPLETEVER) | sed -e 's/^\([0-9]*\).*$$/\1/'`" >> ${.TARGET}
+	echo "#define version_string \"${GCCCOMPLETEVER}.0\"" >> ${.TARGET}
+	echo '#define pkgversion_string "([DragonFly]) "' >> ${.TARGET}
+	echo '#define bug_report_url "<http://bugs.dragonflybsd.org>"' >> ${.TARGET}
+	echo '#define GCOV_VERSION ((gcov_unsigned_t)0x4232352a)  /* B25* */' >> ${.TARGET}
+	echo '#endif /* VERSION_H */' >> ${.TARGET}
 
 # NOTE: BUILDING_GCC_PATCHLEVEL is hardcoded to 1. Should not be used.
 # Check gcc/cppbuiltin.c for GCC_VERSION and BUILDING_GCC_VERSION.

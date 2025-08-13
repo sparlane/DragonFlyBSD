@@ -1,6 +1,3 @@
-# Despite the source files ending in ".c", the c++ compiler needs to build
-# everything.  We have to roll our own targets to properly support this.
-
 .include "../Makefile.inc"
 .include "../../Makefile.langs"
 
@@ -23,13 +20,13 @@ BUILD_RTL=	rtl.no \
 		sort.no
 BUILD_MD=	read-md.no
 BUILD_ERRORS=	errors.no
-BUILD_GTYPE=	gengtype-lex.no \
-		gengtype-parse.no \
-		gengtype-state.no \
-		version.no
+# gcc/Makefile.in: GENGTYPE_OBJS
+BUILD_GTYPE= \
+	gengtype-parse.no gengtype-state.no \
+	gengtype-lex.no
 
 genprogrtl=	attr attr-common attrtab automata codes conditions config emit \
-		extract flags opinit output peep preds recog mddump target-def
+		extract flags opinit output peep preds recog mddump target-def version
 genprogmd=	$(genprogrtl) mddeps constants enums
 genprogerr=	$(genprogmd) genrtl modes gtype hooks cfn-macros match
 genprog=	$(genprogerr) check checksum condmd
@@ -66,10 +63,6 @@ gen${f}.nx: ${BUILD_ERRORS}
 GENTOOLS+= gen${f}.nx
 .endfor
 
-# For some reason, gcov-iov is an oddball
-GENTOOLS+=	gcov-iov.nx
-NO_LIST+=	gcov-iov.no
-
 gengtype.nx: ${BUILD_GTYPE}
 genmatch.nx: hash-table.no vec.no sort.no
 gencfn-macros.nx: hash-table.no vec.no ggc-none.no sort.no
@@ -81,13 +74,8 @@ $f: ${f:.nx=.no} ${BUILD_LIBS_${f:R}} ${BUILD_LIBS}
 .endfor
 
 .for nofile in ${NO_LIST}
-.if ${nofile} == "sort.no"
 ${nofile}: ${nofile:.no=.cc}
 	${NXCXX} ${NXCXXFLAGS:N-flto} -c ${.IMPSRC} -o ${.TARGET}
-.else
-${nofile}: ${nofile:.no=.c}
-	${NXCXX} ${NXCXXFLAGS:N-flto} -c ${.IMPSRC} -o ${.TARGET}
-.endif
 .endfor
 
 gencheck.no: tm.h insn-constants.h
@@ -109,11 +97,11 @@ _MD: .USE
 
 simple_rtl_generated_h=	insn-attr.h insn-attr-common.h insn-codes.h \
 			insn-config.h insn-flags.h insn-target-def.h
-simple_rtl_generated_c=	insn-automata.c insn-emit.c insn-extract.c \
-			insn-output.c insn-peep.c insn-recog.c
+simple_rtl_generated_c=	insn-automata.cc insn-emit.cc insn-extract.cc \
+			insn-output.cc insn-peep.cc insn-recog.cc
 
 simple_generated_h=	$(simple_rtl_generated_h) insn-constants.h
-simple_generated_c=	$(simple_rtl_generated_c) insn-enums.c insn-preds.c
+simple_generated_c=	$(simple_rtl_generated_c) insn-enums.cc insn-preds.cc
 
 .for f in ${simple_rtl_generated_h} ${simple_rtl_generated_c}
 . for generator in gen${f:R:S/^insn-//}.nx
@@ -134,11 +122,11 @@ gtyp-input.list: _MIC
 gtype.state: gengtype.nx gtyp-input.list ${GTFILES:N[*]} _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} -S ${GCCDIR}/gcc -I ${.ALLSRC:M*.list} \
 	  -w gtype.state.tmp
-gtype-desc.c gtype-desc.h: gengtype.nx gtype.state
+gtype-desc.cc gtype-desc.h: gengtype.nx gtype.state
 	${.OBJDIR}/${.ALLSRC:M*.nx} -r gtype.state
 genrtl.h: gengenrtl.nx _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} > ${.TARGET}.tmp
-min-insn-modes.c: genmodes.nx _MIC
+min-insn-modes.cc: genmodes.nx _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} -m > ${.TARGET}.tmp
 tm-preds.h: genpreds.nx ${MD_DEPS} _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} -h ${MD_DEPS} > ${.TARGET}.tmp
@@ -149,13 +137,13 @@ case-cfn-macros.h: gencfn-macros.nx _MIC
 cfn-operators.pd: gencfn-macros.nx _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} -o > ${.TARGET}.tmp
 insn-constants.h:   genconstants.nx ${MD_DEPS} _MD
-insn-enums.c:       genenums.nx ${MD_DEPS} _MD
-insn-preds.c:       genpreds.nx ${MD_DEPS} _MD
-gencondmd.c:        genconditions.nx ${MD_DEPS} tm-preds.h tm-constrs.h _MD
+insn-enums.cc:       genenums.nx ${MD_DEPS} _MD
+insn-preds.cc:       genpreds.nx ${MD_DEPS} _MD
+gencondmd.cc:        genconditions.nx ${MD_DEPS} tm-preds.h tm-constrs.h _MD
 insn-conditions.md: gencondmd.nx _PL
-insn-modes.c:       genmodes.nx _PL
+insn-modes.cc:       genmodes.nx _PL
 tree-check.h:       gencheck.nx _PL
-gcov-iov.h: gcov-iov.nx BASE-VER _MIC
+gcov-iov.h: genversion.nx BASE-VER _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} '${GCCCOMPLETEVER}' '' > ${.TARGET}.tmp
 target-hooks-def.h: genhooks.nx _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} "Target Hook" > ${.TARGET}.tmp
@@ -165,52 +153,53 @@ c-family/c-target-hooks-def.h: genhooks.nx _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} "C Target Hook" > ${.TARGET}.tmp
 stamp-opinit: genopinit.nx ${MD_DEPS_PLUS}
 	${.OBJDIR}/${.ALLSRC:M*.nx} ${.ALLSRC:M*.md} \
-		-hinsn-opinit.h.tmp -cinsn-opinit.c.tmp
+		-hinsn-opinit.h.tmp -cinsn-opinit.cc.tmp
 	${MIC} insn-opinit.h.tmp insn-opinit.h
-	${MIC} insn-opinit.c.tmp insn-opinit.c
+	${MIC} insn-opinit.cc.tmp insn-opinit.cc
 	touch stamp-opinit
 stamp-tabs: genattrtab.nx ${MD_DEPS_PLUS}
 	${.OBJDIR}/${.ALLSRC:M*.nx} ${.ALLSRC:M*.md} \
-		-Ainsn-attrtab.c.tmp -Dinsn-dfatab.c.tmp \
-		-Linsn-latencytab.c.tmp
-	${MIC} insn-attrtab.c.tmp insn-attrtab.c
-	${MIC} insn-dfatab.c.tmp insn-dfatab.c
-	${MIC} insn-latencytab.c.tmp insn-latencytab.c
+		-Ainsn-attrtab.cc.tmp -Dinsn-dfatab.cc.tmp \
+		-Linsn-latencytab.cc.tmp
+	${MIC} insn-attrtab.cc.tmp insn-attrtab.cc
+	${MIC} insn-dfatab.cc.tmp insn-dfatab.cc
+	${MIC} insn-latencytab.cc.tmp insn-latencytab.cc
 	touch stamp-tabs
-gimple-match.c: genmatch.nx match.pd cfn-operators.pd gimple-match-head.c _MIC
+gimple-match.cc: genmatch.nx match.pd cfn-operators.pd gimple-match-head.cc _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} --gimple ${GCCDIR}/gcc/match.pd \
 	> ${.TARGET}.tmp
-generic-match.c: genmatch.nx match.pd cfn-operators.pd generic-match-head.c _MIC
+generic-match.cc: genmatch.nx match.pd cfn-operators.pd generic-match-head.cc _MIC
 	${.OBJDIR}/${.ALLSRC:M*.nx} --generic ${GCCDIR}/gcc/match.pd \
 	> ${.TARGET}.tmp
-genmatch.c hash-table.c: gtype-desc.h
-genmatch.c: case-cfn-macros.h
+genmatch.cc hash-table.cc: gtype-desc.h
+genmatch.cc: case-cfn-macros.h
 
 pass-instances.def: ${GCCDIR}/gcc/passes.def $(PASSES_EXTRA)
 	/usr/bin/awk -f ${GCCDIR}/gcc/gen-pass-instances.awk \
 		${.ALLSRC} > ${.TARGET}
 
 # This is gold, don't ask.
-gengtype-lex.c: gengtype-lex.l ${LEX_HEAD}
-	${LEX} ${LFLAGS} -o${.TARGET}.tmp ${.IMPSRC}
+gengtype-lex.cc: gengtype-lex.l ${LEX_HEAD}
+	echo ${LEX} ${LFLAGS} -o${.TARGET}.tmp ${GCCDIR}/gcc/gengtype-lex.l
+	${LEX} ${LFLAGS} -o${.TARGET}.tmp ${GCCDIR}/gcc/gengtype-lex.l
 	cat ${LEX_HEAD} ${.TARGET}.tmp > ${.TARGET}
 
 GENFILES=	${simple_generated_h} ${simple_generated_c} \
 		tree-check.h genrtl.h insn-modes.h insn-modes-inline.h \
 		tm-preds.h tm-constrs.h \
-		gtype-desc.c gtype-desc.h gcov-iov.h target-hooks-def.h \
+		gtype-desc.cc gtype-desc.h gcov-iov.h target-hooks-def.h \
 		common/common-target-hooks-def.h pass-instances.def \
-		c-family/c-target-hooks-def.h min-insn-modes.c \
-		insn-modes.c insn-constants.h insn-conditions.md \
-		gencondmd.c gimple-match.c generic-match.c \
+		c-family/c-target-hooks-def.h min-insn-modes.cc \
+		insn-modes.cc insn-constants.h insn-conditions.md \
+		gencondmd.cc gimple-match.cc generic-match.cc \
 		case-cfn-macros.h cfn-operators.pd \
 		stamp-opinit stamp-tabs
 
 CLEANFILES+=	${GENTOOLS} ${NO_LIST}
-CLEANFILES+=	gengtype-lex.c gengtype-lex.c.tmp
+CLEANFILES+=	gengtype-lex.cc gengtype-lex.cc.tmp
 CLEANFILES+=	${GENFILES} gtyp-input.list gtype.state
 CLEANFILES+=	gt-* gtype-*.h pass-instances.def
-CLEANFILES+=	insn-opinit.[ch] insn-*tab.c
+CLEANFILES+=	insn-opinit.cc insn-opinit.h insn-*tab.cc
 CLEANDIRS+=	common c-family
 
 dossier:
@@ -218,7 +207,7 @@ dossier:
 
 .if defined(LIBGCC_ONLY)
 GENLIBGCC=	${GENTOOLS:Mgenconstants*} ${GENTOOLS:Mgenmodes*} \
-		${GENTOOLS:Mgcov-iov*} \
+		${GENTOOLS:Mgenversion*} \
 		${GENFILES:Minsn-constants.h} ${GENFILES:Minsn-modes.h} \
 		${GENFILES:Mgcov-iov.h}
 genfiles: dossier ${GENLIBGCC}

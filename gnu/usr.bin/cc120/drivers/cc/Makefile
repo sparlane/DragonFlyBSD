@@ -7,7 +7,7 @@ LINKS=		${BINDIR}/cc ${BINDIR}/gcc
 MFILE=		gcc${MANPAGEVER}.1
 MAN=		${MFILE}
 
-SRCS=		${GCC_SRCS} gccspec.c ${EXTRA_GCC_SRCS}
+SRCS=		${GCC_SRCS} gccspec.cc ${EXTRA_GCC_SRCS}
 
 CFLAGS+=	-DCONFIGURE_SPECS="\"\"" \
 		-DACCEL_DIR_SUFFIX="\"\"" \
