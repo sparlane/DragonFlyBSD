@@ -3251,7 +3251,7 @@ Common Driver Var(debug_variable_location_views, 1) Init(2)
 Augment variable location lists with progressive views.
 
 gvariable-location-views=incompat5
-Common Driver RejectNegative Var(debug_variable_location_views, -1) Init(2)
+Common Driver RejectNegative Var(debug_variable_location_views, 2) Init(2)
 
 gvms
 Common Driver JoinedOrMissing Negative(gxcoff)

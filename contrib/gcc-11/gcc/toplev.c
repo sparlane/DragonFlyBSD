@@ -1545,7 +1545,7 @@ process_options (void)
 	   && dwarf2out_as_loc_support
 	   && dwarf2out_as_locview_support);
     }
-  else if (debug_variable_location_views == -1 && dwarf_version != 5)
+  else if (debug_variable_location_views == 2 && dwarf_version != 5)
     {
       warning_at (UNKNOWN_LOCATION, 0,
 		  "without %<-gdwarf-5%>, "
