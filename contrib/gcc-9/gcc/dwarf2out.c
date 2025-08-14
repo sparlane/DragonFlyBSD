@@ -1365,7 +1365,7 @@ dwarf2out_locviews_in_loclist ()
 #ifndef DW_LLE_view_pair
   return false;
 #else
-  return debug_variable_location_views == -1;
+  return debug_variable_location_views == 2;
 #endif
 }
 

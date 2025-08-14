@@ -117,7 +117,7 @@ struct cl_option
   /* How this option's value is determined and sets a field.  */
   enum cl_var_type var_type;
   /* Value or bit-mask with which to set a field.  */
-  HOST_WIDE_INT var_value;
+  unsigned long long var_value;
   /* Range info minimum, or -1.  */
   int range_min;
   /* Range info maximum, or -1.  */
