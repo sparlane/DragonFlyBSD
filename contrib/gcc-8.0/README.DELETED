@@ -739,7 +739,9 @@ gcc/config/i386/cygwin-w64.h
 gcc/config/i386/cygwin.h
 gcc/config/i386/cygwin.opt
 gcc/config/i386/darwin.h
+gcc/config/i386/darwin32-biarch.h
 gcc/config/i386/darwin64.h
+gcc/config/i386/darwin64-biarch.h
 gcc/config/i386/djgpp-stdint.h
 gcc/config/i386/djgpp.c
 gcc/config/i386/djgpp.h
@@ -790,8 +792,11 @@ gcc/config/i386/t-cet
 gcc/config/i386/t-cygming
 gcc/config/i386/t-cygwin-w64
 gcc/config/i386/t-darwin
+gcc/config/i386/t-darwin32-biarch
 gcc/config/i386/t-darwin64
+gcc/config/i386/t-darwin64-biarch
 gcc/config/i386/t-djgpp
+gcc/config/i386/t-freebsd64
 gcc/config/i386/t-gmm_malloc
 gcc/config/i386/t-gnu
 gcc/config/i386/t-i386
@@ -1269,6 +1274,7 @@ libgcc/config/i386/darwin-lib.h
 libgcc/config/i386/elf-lib.h
 libgcc/config/i386/enable-execute-stack-mingw32.c
 libgcc/config/i386/freebsd-unwind.h
+libgcc/config/i386/gnu-unwind.h
 libgcc/config/i386/gthr-win32.c
 libgcc/config/i386/gthr-win32.h
 libgcc/config/i386/i386-asm.h

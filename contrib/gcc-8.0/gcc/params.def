@@ -387,7 +387,7 @@ DEFPARAM(PARAM_SMS_MIN_SC,
 DEFPARAM(PARAM_SMS_DFA_HISTORY,
 	 "sms-dfa-history",
 	 "The number of cycles the swing modulo scheduler considers when checking conflicts using DFA.",
-	 0, 0, 0)
+	 0, 0, 16)
 DEFPARAM(PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD,
 	 "sms-loop-average-count-threshold",
 	 "A threshold on the average loop count considered by the swing modulo scheduler.",
@@ -1016,6 +1016,13 @@ DEFPARAM (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE,
 	  "Maximum size, in storage units, of an aggregate which should be "
 	  "considered for scalarization when compiling for size.",
 	  0, 0, 0)
+
+DEFPARAM (PARAM_SRA_MAX_PROPAGATIONS,
+	  "sra-max-propagations",
+	  "Maximum number of artificial accesses to enable forward propagation "
+	  "that Scalar Replacement of Aggregates will keep for one local "
+	  "variable.",
+	  32, 0, 0)
 
 DEFPARAM (PARAM_IPA_CP_VALUE_LIST_SIZE,
 	  "ipa-cp-value-list-size",

@@ -969,9 +969,13 @@ mark_target_live_regs (rtx_insn *insns, rtx target_maybe_return, struct resource
     {
       regset regs_live = DF_LR_IN (BASIC_BLOCK_FOR_FN (cfun, b));
       rtx_insn *start_insn, *stop_insn;
+      df_ref def;
 
       /* Compute hard regs live at start of block.  */
       REG_SET_TO_HARD_REG_SET (current_live_regs, regs_live);
+      FOR_EACH_ARTIFICIAL_DEF (def, b)
+	if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+	  SET_HARD_REG_BIT (current_live_regs, DF_REF_REGNO (def));
 
       /* Get starting and ending insn, handling the case where each might
 	 be a SEQUENCE.  */
@@ -1289,7 +1293,26 @@ clear_hashed_info_for_insn (rtx_insn *insn)
 	tinfo->block = -1;
     }
 }
-
+
+/* Clear any hashed information that we have stored for instructions
+   between INSN and the next BARRIER that follow a JUMP or a LABEL.  */
+
+void
+clear_hashed_info_until_next_barrier (rtx_insn *insn)
+{
+  while (insn && !BARRIER_P (insn))
+    {
+      if (JUMP_P (insn) || LABEL_P (insn))
+	{
+	  rtx_insn *next = next_active_insn (insn);
+	  if (next)
+	    clear_hashed_info_for_insn (next);
+	}
+
+      insn = next_nonnote_insn (insn);
+    }
+}
+
 /* Increment the tick count for the basic block that contains INSN.  */
 
 void

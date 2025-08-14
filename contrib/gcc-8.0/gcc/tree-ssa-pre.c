@@ -2797,7 +2797,8 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	      unsigned HOST_WIDE_INT hmisalign
 		= args.length () == 3 ? tree_to_uhwi (args[2]) : 0;
 	      if ((halign & (halign - 1)) == 0
-		  && (hmisalign & ~(halign - 1)) == 0)
+		  && (hmisalign & ~(halign - 1)) == 0
+		  && (unsigned int)halign != 0)
 		set_ptr_info_alignment (get_ptr_info (forcedname),
 					halign, hmisalign);
 	    }
@@ -3918,6 +3919,13 @@ compute_avail (void)
 			  operands.release ();
 			  continue;
 			}
+
+		      /* If the REFERENCE traps and there was a preceding
+		         point in the block that might not return avoid
+			 adding the reference to EXP_GEN.  */
+		      if (BB_MAY_NOTRETURN (block)
+			  && vn_reference_may_trap (ref))
+			continue;
 
 		      /* If the value of the reference is not invalidated in
 			 this block until it is computed, add the expression

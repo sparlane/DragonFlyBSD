@@ -2480,6 +2480,11 @@ combine_blocks (struct loop *loop)
       vphi = get_virtual_phi (bb);
       if (vphi)
 	{
+	  /* When there's just loads inside the loop a stray virtual
+	     PHI merging the uses can appear, update last_vdef from
+	     it.  */
+	  if (!last_vdef)
+	    last_vdef = gimple_phi_arg_def (vphi, 0);
 	  imm_use_iterator iter;
 	  use_operand_p use_p;
 	  gimple *use_stmt;
@@ -2509,6 +2514,10 @@ combine_blocks (struct loop *loop)
 	      if (gimple_vdef (stmt))
 		last_vdef = gimple_vdef (stmt);
 	    }
+	  else
+	    /* If this is the first load we arrive at update last_vdef
+	       so we handle stray PHIs correctly.  */
+	    last_vdef = gimple_vuse (stmt);
 	  if (predicated[i])
 	    {
 	      ssa_op_iter i;
@@ -2746,9 +2755,12 @@ ifcvt_local_dce (basic_block bb)
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gsi_stmt (gsi);
-      if (gimple_store_p (stmt)
-	  || gimple_assign_load_p (stmt)
-	  || is_gimple_debug (stmt))
+      if (is_gimple_debug (stmt))
+	{
+	  gimple_set_plf (stmt, GF_PLF_2, true);
+	  continue;
+	}
+      if (gimple_store_p (stmt) || gimple_assign_load_p (stmt))
 	{
 	  gimple_set_plf (stmt, GF_PLF_2, true);
 	  worklist.safe_push (stmt);
@@ -2769,7 +2781,7 @@ ifcvt_local_dce (basic_block bb)
 	  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, lhs)
 	    {
 	      stmt1 = USE_STMT (use_p);
-	      if (gimple_bb (stmt1) != bb)
+	      if (!is_gimple_debug (stmt1) && gimple_bb (stmt1) != bb)
 		{
 		  gimple_set_plf (stmt, GF_PLF_2, true);
 		  worklist.safe_push (stmt);
@@ -2792,21 +2804,22 @@ ifcvt_local_dce (basic_block bb)
 	  if (TREE_CODE (use) != SSA_NAME)
 	    continue;
 	  stmt1 = SSA_NAME_DEF_STMT (use);
-	  if (gimple_bb (stmt1) != bb
-	      || gimple_plf (stmt1, GF_PLF_2))
+	  if (gimple_bb (stmt1) != bb || gimple_plf (stmt1, GF_PLF_2))
 	    continue;
 	  gimple_set_plf (stmt1, GF_PLF_2, true);
 	  worklist.safe_push (stmt1);
 	}
     }
   /* Delete dead statements.  */
-  gsi = gsi_start_bb (bb);
+  gsi = gsi_last_bb (bb);
   while (!gsi_end_p (gsi))
     {
+      gimple_stmt_iterator gsiprev = gsi;
+      gsi_prev (&gsiprev);
       stmt = gsi_stmt (gsi);
       if (gimple_plf (stmt, GF_PLF_2))
 	{
-	  gsi_next (&gsi);
+	  gsi = gsiprev;
 	  continue;
 	}
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2816,6 +2829,7 @@ ifcvt_local_dce (basic_block bb)
 	}
       gsi_remove (&gsi, true);
       release_defs (stmt);
+      gsi = gsiprev;
     }
 }
 

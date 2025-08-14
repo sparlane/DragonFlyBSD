@@ -2342,7 +2342,8 @@ pass_forwprop::execute (function *fun)
 		    continue;
 		  if (!is_gimple_assign (use_stmt)
 		      || (gimple_assign_rhs_code (use_stmt) != REALPART_EXPR
-			  && gimple_assign_rhs_code (use_stmt) != IMAGPART_EXPR))
+			  && gimple_assign_rhs_code (use_stmt) != IMAGPART_EXPR)
+		      || TREE_OPERAND (gimple_assign_rhs1 (use_stmt), 0) != lhs)
 		    {
 		      rewrite = false;
 		      break;
@@ -2481,6 +2482,8 @@ pass_forwprop::execute (function *fun)
 		  {
 		    int did_something;
 		    did_something = forward_propagate_into_comparison (&gsi);
+		    if (maybe_clean_or_replace_eh_stmt (stmt, gsi_stmt (gsi)))
+		      bitmap_set_bit (to_purge, bb->index);
 		    if (did_something == 2)
 		      cfg_changed = true;
 		    changed = did_something != 0;

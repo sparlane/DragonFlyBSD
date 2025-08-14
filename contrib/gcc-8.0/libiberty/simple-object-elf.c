@@ -549,6 +549,14 @@ simple_object_elf_match (unsigned char header[SIMPLE_OBJECT_MATCH_HEADER_LEN],
       return NULL;
     }
 
+  if (eor->shstrndx == 0)
+    {
+      *errmsg = "invalid ELF shstrndx == 0";
+      *err = 0;
+      XDELETE (eor);
+      return NULL;
+    }
+
   return (void *) eor;
 }
 
@@ -1437,6 +1445,11 @@ simple_object_elf_copy_lto_debug_sections (simple_object_read *sobj,
 	      else if (st_shndx != SHN_UNDEF
 		       && st_shndx < shnum
 		       && pfnret[st_shndx - 1] == -1)
+		discard = 1;
+	      /* We also need to remove global UNDEFs which can
+		 cause link fails later.  */
+	      else if (st_shndx == SHN_UNDEF
+		       && ELF_ST_BIND (*st_info) == STB_GLOBAL)
 		discard = 1;
 
 	      if (discard)

@@ -1767,6 +1767,9 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
 	    && DECL_CONV_FN_P (t->cand->fn))
 	  {
 	    tree ftype = TREE_TYPE (TREE_TYPE (t->cand->fn));
+	    /* A prvalue of non-class type is cv-unqualified.  */
+	    if (TREE_CODE (ftype) != REFERENCE_TYPE && !CLASS_TYPE_P (ftype))
+	      ftype = cv_unqualified (ftype);
 	    int sflags = (flags|LOOKUP_NO_CONVERSION)&~LOOKUP_NO_TEMP_BIND;
 	    conversion *new_second
 	      = reference_binding (rto, ftype, NULL_TREE, c_cast_p,
@@ -3892,6 +3895,16 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
 	      cand->reason = arg_conversion_rejection (NULL_TREE, -2,
 						       rettype, totype);
 	    }
+	  else if (TYPE_REF_P (totype) && !ics->rvaluedness_matches_p
+		   /* Limit this to non-templates for now (PR90546).  */
+		   && !cand->template_decl
+		   && TREE_CODE (TREE_TYPE (totype)) != FUNCTION_TYPE)
+	    {
+	      /* If we are called to convert to a reference type, we are trying
+		 to find a direct binding per [over.match.ref], so rvaluedness
+		 must match for non-functions.  */
+	      cand->viable = 0;
+	    }
 	  else if (DECL_NONCONVERTING_P (cand->fn)
 		   && ics->rank > cr_exact)
 	    {
@@ -5575,6 +5588,15 @@ op_is_ordered (tree_code code)
     case LSHIFT_EXPR:
       // 8. a >> b
     case RSHIFT_EXPR:
+      // a && b
+      // Predates P0145R3.
+    case TRUTH_ANDIF_EXPR:
+      // a || b
+      // Predates P0145R3.
+    case TRUTH_ORIF_EXPR:
+      // a , b
+      // Predates P0145R3.
+    case COMPOUND_EXPR:
       return (flag_strong_eval_order ? 1 : 0);
 
     default:
@@ -6775,7 +6797,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	/* If we're initializing from {}, it's value-initialization.  */
 	if (BRACE_ENCLOSED_INITIALIZER_P (expr)
 	    && CONSTRUCTOR_NELTS (expr) == 0
-	    && TYPE_HAS_DEFAULT_CONSTRUCTOR (totype))
+	    && TYPE_HAS_DEFAULT_CONSTRUCTOR (totype)
+	    && !processing_template_decl)
 	  {
 	    bool direct = CONSTRUCTOR_IS_DIRECT_INIT (expr);
 	    if (abstract_virtuals_error_sfinae (NULL_TREE, totype, complain))
@@ -7110,7 +7133,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
     case ck_qual:
       /* Warn about deprecated conversion if appropriate.  */
-      string_conv_p (totype, expr, 1);
+      if (complain & tf_warning)
+	string_conv_p (totype, expr, 1);
       break;
 
     case ck_ptr:
@@ -7175,7 +7199,12 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
       arg = convert_to_real_nofold (double_type_node, arg);
     }
   else if (NULLPTR_TYPE_P (arg_type))
-    arg = null_pointer_node;
+    {
+      if (TREE_SIDE_EFFECTS (arg))
+	arg = cp_build_compound_expr (arg, null_pointer_node, complain);
+      else
+	arg = null_pointer_node;
+    }
   else if (INTEGRAL_OR_ENUMERATION_TYPE_P (arg_type))
     {
       if (SCOPED_ENUM_P (arg_type))
@@ -7884,6 +7913,19 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (DECL_FINAL_P (fn)
 	  || CLASSTYPE_FINAL (TYPE_METHOD_BASETYPE (TREE_TYPE (fn))))
 	flags |= LOOKUP_NONVIRTUAL;
+
+      /* If we know the dynamic type of the object, look up the final overrider
+	 in the BINFO.  */
+      if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0
+	  && resolves_to_fixed_type_p (arg))
+	{
+	  tree binfo = cand->conversion_path;
+	  if (BINFO_TYPE (binfo) != DECL_CONTEXT (fn))
+	    binfo = lookup_base (binfo, DECL_CONTEXT (fn), ba_unique,
+				 NULL, complain);
+	  fn = lookup_vfn_in_binfo (DECL_VINDEX (fn), binfo);
+	  flags |= LOOKUP_NONVIRTUAL;
+	}
 
       /* [class.mfct.nonstatic]: If a nonstatic member function of a class
 	 X is called for an object that is not of type X, or of a type
@@ -9367,17 +9409,6 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 
 	  if (call != error_mark_node)
 	    {
-	      /* Optimize away vtable lookup if we know that this
-		 function can't be overridden.  We need to check if
-		 the context and the type where we found fn are the same,
-		 actually FN might be defined in a different class
-		 type because of a using-declaration. In this case, we
-		 do not want to perform a non-virtual call.  */
-	      if (DECL_VINDEX (fn) && ! (flags & LOOKUP_NONVIRTUAL)
-		  && same_type_ignoring_top_level_qualifiers_p
-		  (DECL_CONTEXT (fn), BINFO_TYPE (binfo))
-		  && resolves_to_fixed_type_p (instance, 0))
-		flags |= LOOKUP_NONVIRTUAL;
               if (explicit_targs)
                 flags |= LOOKUP_EXPLICIT_TMPL_ARGS;
 	      /* Now we know what function is being called.  */
@@ -10037,6 +10068,33 @@ add_warning (struct z_candidate *winner, struct z_candidate *loser)
   winner->warnings = cw;
 }
 
+/* CAND is a constructor candidate in joust in C++17 and up.  If it copies a
+   prvalue returned from a conversion function, replace CAND with the candidate
+   for the conversion and return true.  Otherwise, return false.  */
+
+static bool
+joust_maybe_elide_copy (z_candidate *&cand)
+{
+  tree fn = cand->fn;
+  if (!DECL_COPY_CONSTRUCTOR_P (fn) && !DECL_MOVE_CONSTRUCTOR_P (fn))
+    return false;
+  conversion *conv = cand->convs[0];
+  gcc_checking_assert (conv->kind == ck_ref_bind);
+  conv = next_conversion (conv);
+  if (conv->kind == ck_user && !TYPE_REF_P (conv->type))
+    {
+      gcc_checking_assert (same_type_ignoring_top_level_qualifiers_p
+			   (conv->type, DECL_CONTEXT (fn)));
+      z_candidate *uc = conv->cand;
+      if (DECL_CONV_FN_P (uc->fn))
+	{
+	  cand = uc;
+	  return true;
+	}
+    }
+  return false;
+}
+
 /* Compare two candidates for overloading as described in
    [over.match.best].  Return values:
 
@@ -10117,6 +10175,27 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 	}
     }
 
+  /* Handle C++17 copy elision in [over.match.ctor] (direct-init) context.  The
+     standard currently says that only constructors are candidates, but if one
+     copies a prvalue returned by a conversion function we want to treat the
+     conversion as the candidate instead.
+
+     Clang does something similar, as discussed at
+     http://lists.isocpp.org/core/2017/10/3166.php
+     http://lists.isocpp.org/core/2019/03/5721.php  */
+  int elided_tiebreaker = 0;
+  if (len == 1 && cxx_dialect >= cxx17
+      && DECL_P (cand1->fn)
+      && DECL_COMPLETE_CONSTRUCTOR_P (cand1->fn)
+      && !(cand1->flags & LOOKUP_ONLYCONVERTING))
+    {
+      bool elided1 = joust_maybe_elide_copy (cand1);
+      bool elided2 = joust_maybe_elide_copy (cand2);
+      /* As a tiebreaker below we will prefer a constructor to a conversion
+	 operator exposed this way.  */
+      elided_tiebreaker = elided2 - elided1;
+    }
+
   for (i = 0; i < len; ++i)
     {
       conversion *t1 = cand1->convs[i + off1];
@@ -10172,7 +10251,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
      either between a constructor and a conversion op, or between two
      conversion ops.  */
   if ((complain & tf_warning)
-      && winner && warn_conversion && cand1->second_conv
+      /* In C++17, the constructor might have been elided, which means that
+	 an originally null ->second_conv could become non-null.  */
+      && winner && warn_conversion && cand1->second_conv && cand2->second_conv
       && (!DECL_CONSTRUCTOR_P (cand1->fn) || !DECL_CONSTRUCTOR_P (cand2->fn))
       && winner != compare_ics (cand1->second_conv, cand2->second_conv))
     {
@@ -10224,6 +10305,11 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 
   if (winner)
     return winner;
+
+  /* Put this tiebreaker first, so that we don't try to look at second_conv of
+     a constructor candidate that doesn't have one.  */
+  if (elided_tiebreaker)
+    return elided_tiebreaker;
 
   /* DR 495 moved this tiebreaker above the template ones.  */
   /* or, if not that,

@@ -759,6 +759,11 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
     CASE_CONST_UNIQUE:
       return false;
 
+    case CONST_VECTOR:
+      if (!same_vector_encodings_p (x, y))
+	return false;
+      break;
+
     case LABEL_REF:
       return label_ref_label (x) == label_ref_label (y);
     case SYMBOL_REF:
@@ -1774,14 +1779,24 @@ uses_hard_regs_p (rtx x, HARD_REG_SET set)
     return false;
   code = GET_CODE (x);
   mode = GET_MODE (x);
+
   if (code == SUBREG)
     {
+      /* For all SUBREGs we want to check whether the full multi-register
+	 overlaps the set.  For normal SUBREGs this means 'get_hard_regno' of
+	 the inner register, for paradoxical SUBREGs this means the
+	 'get_hard_regno' of the full SUBREG and for complete SUBREGs either is
+	 fine.  Use the wider mode for all cases.  */
+      rtx subreg = SUBREG_REG (x);
       mode = wider_subreg_mode (x);
-      x = SUBREG_REG (x);
-      code = GET_CODE (x);
+      if (mode == GET_MODE (subreg))
+	{
+	  x = subreg;
+	  code = GET_CODE (x);
+	}
     }
 
-  if (REG_P (x))
+  if (REG_P (x) || SUBREG_P (x))
     {
       x_hard_regno = get_hard_regno (x, true);
       return (x_hard_regno >= 0
@@ -2315,6 +2330,8 @@ process_alt_operands (int only_alternative)
 		  break;
 
 		reg:
+		  if (mode == BLKmode)
+		    break;
 		  this_alternative = reg_class_subunion[this_alternative][cl];
 		  IOR_HARD_REG_SET (this_alternative_set,
 				    reg_class_contents[cl]);
@@ -2325,8 +2342,6 @@ process_alt_operands (int only_alternative)
 		      IOR_HARD_REG_SET (this_costly_alternative_set,
 					reg_class_contents[cl]);
 		    }
-		  if (mode == BLKmode)
-		    break;
 		  winreg = true;
 		  if (REG_P (op))
 		    {
@@ -5766,6 +5781,9 @@ invariant_p (const_rtx x)
   const char *fmt;
   enum rtx_code code;
   int i, j;
+
+  if (side_effects_p (x))
+    return false;
 
   code = GET_CODE (x);
   mode = GET_MODE (x);

@@ -1019,6 +1019,7 @@ copy_loop_info (struct loop *loop, struct loop *target)
   target->warned_aggressive_loop_optimizations
     |= loop->warned_aggressive_loop_optimizations;
   target->in_oacc_kernels_region = loop->in_oacc_kernels_region;
+  target->owned_clique = loop->owned_clique;
 }
 
 /* Copies copy of LOOP as subloop of TARGET loop, placing newly
@@ -1499,9 +1500,10 @@ create_preheader (struct loop *loop, int flags)
       else
         {
           /* If we want simple preheaders, also force the preheader to have
-             just a single successor.  */
+	     just a single successor and a normal edge.  */
           if ((flags & CP_SIMPLE_PREHEADERS)
-              && !single_succ_p (single_entry->src))
+	      && ((single_entry->flags & EDGE_COMPLEX)
+		  || !single_succ_p (single_entry->src)))
             need_forwarder_block = true;
           /* If we want fallthru preheaders, also create forwarder block when
              preheader ends with a jump or has predecessors from loop.  */
