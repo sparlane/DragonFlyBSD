@@ -272,7 +272,7 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
 
 /* The "default" register map used in 32bit mode.  */
 
-int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
+unsigned int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
 {
   /* general regs */
   0, 2, 1, 3, 6, 7, 4, 5,
@@ -303,7 +303,7 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
 
 /* The "default" register map used in 64bit mode.  */
 
-int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
+unsigned int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
 {
   /* general regs */
   0, 1, 2, 3, 4, 5, 6, 7,
@@ -382,7 +382,7 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
 	17 for %st(6) (gcc regno = 14)
 	18 for %st(7) (gcc regno = 15)
 */
-int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
+unsigned int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
 {
   /* general regs */
   0, 2, 1, 3, 6, 7, 5, 4,
@@ -2941,7 +2941,7 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
   struct ix86_target_opts
   {
     const char *option;		/* option string */
-    HOST_WIDE_INT mask;		/* isa mask options */
+    unsigned long long mask;		/* isa mask options */
   };
 
   /* This table is ordered so that options like -msse4.2 that imply other
@@ -30851,7 +30851,7 @@ ix86_add_new_builtins (HOST_WIDE_INT isa, HOST_WIDE_INT isa2)
 
 struct builtin_description
 {
-  const HOST_WIDE_INT mask;
+  const unsigned long long mask;
   const HOST_WIDE_INT mask2;
   const enum insn_code icode;
   const char *const name;
