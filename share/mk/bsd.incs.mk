@@ -52,9 +52,11 @@ _${group}INCS+= ${header}
 installincludes: _${group}INS
 _${group}INS: ${_${group}INCS}
 .if defined(${group}NAME)
+	install -d ${DESDRIR}${$group}DIR}/${${group}NAME}
 	${INSTALL} -C -o ${${group}OWN} -g ${${group}GRP} -m ${${group}MODE} \
 	    ${.ALLSRC} ${DESTDIR}${${group}DIR}/${${group}NAME}
 .else
+	install -d ${DESTDIR}${${group}DIR}
 	${INSTALL} -C -o ${${group}OWN} -g ${${group}GRP} -m ${${group}MODE} \
 	    ${.ALLSRC} ${DESTDIR}${${group}DIR}
 .endif
