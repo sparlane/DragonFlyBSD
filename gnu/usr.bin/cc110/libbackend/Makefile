@@ -387,28 +387,6 @@ BACKEND_OBJS= \
 	$(EXTRA_OBJS) \
 	$(host_hook_obj)
 
-omp-general.o: omp-device-properties.h
-
-omp_device_properties=
-omp-device-properties-h:
-	-rm -f tmp-omp-device-properties.h; \
-	for kind in kind arch isa; do \
-	  echo 'const char omp_offload_device_'$${kind}'[] = ' \
-	    >> tmp-omp-device-properties.h; \
-	  for prop in none $(omp_device_properties); do \
-	    [ "$$prop" = "none" ] && continue; \
-	    tgt=`echo "$$prop" | sed 's/=.*$$//'`; \
-	    props=`echo "$$prop" | sed 's/.*=//'`; \
-	    echo "\"$$tgt\\0\"" >> tmp-omp-device-properties.h; \
-	    sed -n 's/^'$${kind}': //p' $${props} \
-	      | sed 's/[[:blank:]]/ /g;s/  */ /g;s/^ //;s/ $$//;s/ /\\0/g;s/^/"/;s/$$/\\0\\0"/' \
-	      >> tmp-omp-device-properties.h; \
-	  done; \
-	  echo '"";' >> tmp-omp-device-properties.h; \
-	done; \
-	${GCCDIR}/move-if-change tmp-omp-device-properties.h \
-	  omp-device-properties.h
-
 .if ${CFLAGS:M-DTOOLCHAIN_CHECKING}
 BACKEND_OBJS+=	fibonacci_heap.o function-tests.o \
 		hash-map-tests.o hash-set-tests.o \
