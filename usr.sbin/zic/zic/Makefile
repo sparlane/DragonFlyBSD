@@ -7,4 +7,7 @@ SRCS=	zic.c ialloc.c scheck.c
 MAN=	zic.8
 CFLAGS+=-I${.CURDIR}/../../../lib/libc/stdtime
 
+# For GCC-10
+CWARNFLAGS+= -Wno-overflow
+
 .include <bsd.prog.mk>
