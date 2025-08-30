@@ -54,6 +54,18 @@ CWARNFLAGS	+=	-Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch\
 CWARNFLAGS	+=	-Wchar-subscripts -Winline -Wnested-externs\
 			-Wredundant-decls
 .  endif
+# Delete -Waddress-of-packed-member (appeared in GCC 9)
+.  if ${WARNS} >= 1 && ${_WCCVER:Mgcc10*}
+_cnowarnflags  +=	-Wno-address-of-packed-member
+. endif
+# Delete -Wunused-local-typedefs (appeared in GCC 10, GCC headers trigger this :( )
+.  if ${WARNS} >= 1 && ${_WCCVER:Mgcc10*}
+_cnowarnflags  +=	-Wno-unused-local-typedefs
+. endif
+# Delete -Winline (appeared in GCC 10)
+.  if ${WARNS} >= 1 && ${_WCCVER:Mgcc10*}
+_cnowarnflags  +=	-Wno-inline
+. endif
 .  if ${WARNS} >= 2 && ${WARNS} <= 6
 # Delete -Wno-pointer-sign from -Wall by default (C only).
 _cnowarnflags	+=	-Wno-pointer-sign
