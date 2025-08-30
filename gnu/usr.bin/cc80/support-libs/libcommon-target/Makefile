@@ -21,7 +21,7 @@ OBJS=		${OBJS-libcommon-target}
 CFLAGS+=	-DPREFIX=\"${TOOLS_PREFIX}/usr\"
 
 # for opts-common.c
-.if ${CCVER:Mgcc80}
+.if (${CCVER:Mgcc80} || ${CCVER:Mgcc100})
 CXXFLAGS+=	-Wno-narrowing
 .elif ${CCVER:Mclang*}
 CXXFLAGS+=	-Wno-c++11-narrowing
