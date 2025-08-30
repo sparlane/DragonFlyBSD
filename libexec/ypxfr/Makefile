@@ -12,6 +12,9 @@ GENSRCS=yp.h yp_clnt.c ypxfr_clnt.c
 WARNS?=	3
 MAN=	ypxfr.8
 
+# For GCC-10
+CWARNFLAGS+= -Wno-enum-conversion
+
 CFLAGS+= -I.
 DPADD=	${LIBRPCSVC}
 LDADD=	-lrpcsvc

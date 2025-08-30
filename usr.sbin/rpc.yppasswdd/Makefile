@@ -23,6 +23,9 @@ CFLAGS+= -I${.CURDIR}/../vipw \
 DPADD=	${LIBRPCSVC} ${LIBCRYPT} ${LIBUTIL}
 LDADD=	-lrpcsvc -lcrypt -lutil
 
+# For GCC-10
+CWARNFLAGS+= -Wno-enum-conversion
+
 CLEANFILES= ${GENSRCS}
 
 RPCGEN=	rpcgen -I -C

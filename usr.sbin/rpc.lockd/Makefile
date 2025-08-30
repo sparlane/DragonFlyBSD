@@ -9,6 +9,9 @@ SRCS=	nlm_prot_svc.c lockd.c lock_proc.c lockd_lock.c
 CFLAGS+=-I${DESTDIR}/usr/include/rpcsvc
 WARNS?= 3
 
+# For GCC-10
+CWARNFLAGS+= -Wno-enum-conversion
+
 DPADD=	${LIBRPCSVC} ${LIBUTIL}
 LDADD=	-lrpcsvc -lutil
 
